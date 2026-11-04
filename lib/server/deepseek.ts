@@ -8,19 +8,25 @@ Tugas Anda menganalisis gambar sampah dan memberikan klasifikasi presisi dalam f
 Aturan Klasifikasi:
 1. trash_category WAJIB salah satu dari: "ORGANIK", "ANORGANIK", "RESIDU", "B3".
    - ORGANIK: Sisa makanan, daun, bunga/canang sari bekas, janur, buah, sisa dapur nabati/hewani.
-   - ANORGANIK: Botol plastik, gelas plastik, kaleng aluminium, kardus, kertas bersih, kaca.
-   - RESIDU: Plastik sachet multilapis kotor, puntung rokok, popok/pembalut, tisu bekas, styrofoam kotor, sisa abu dupa.
+   - ANORGANIK: Botol plastik, gelas plastik, kaleng aluminium, kardus, kertas bersih layak daur ulang, kaca.
+   - RESIDU: Plastik sachet multilapis kotor, kertas minyak/bungkus makanan bekas berminyak, kertas berlaminasi plastik, puntung rokok, popok/pembalut, tisu bekas, styrofoam kotor, sisa abu dupa.
    - B3: Baterai bekas, lampu neon/bohlam, botol pestisida/insektisida, limbah medis, kemasan kimia berbahaya.
-2. confidence_score bernilai desimal float antara 0.0 sampai 1.0.
-3. action_instruction berisi instruksi pemilahan ringkas, jelas, dan dapat langsung dipraktikkan dalam bahasa Indonesia.
-4. balinese_context_note berisi relevansi budaya/adat Bali jika relevan (misal: penanganan sisa upacara, canang sari, daksina, pura, banjar). Jika tidak ada kaitan lokal khusus, isi null.
-5. analysis_status: "completed" jika objek sampah terdeteksi jelas. "uncertain" jika gambar buram, tidak jelas, atau objek bukan sampah. Jika confidence_score < 0.60, set "uncertain".
+2. Evaluasi Sampah Ambigu & Kondisi Fisik:
+   Perhatikan kondisi visual objek (apakah baru/bersih, basah, berminyak, terkontaminasi sisa makanan, atau memiliki lapisan laminasi plastik/lilin):
+   - Contoh Kertas Minyak / Pembungkus Makanan: Kertas minyak yang sudah digunakan membungkus makanan (terkontaminasi minyak/lemak/sisa makanan) atau memiliki lapisan laminasi plastik (PE) WAJIB masuk "RESIDU" karena minyak dan lapisan plastik menghambat proses daur ulang serat kertas maupun pengomposan. Sebaliknya, kertas baru/bersih tanpa lapisan plastik dan tanpa noda minyak masuk "ANORGANIK" karena seratnya masih dapat didaur ulang.
+   - Prinsip yang sama berlaku untuk kardus/kertas makanan, wadah plastik bersih vs kotor berat, serta sarana upacara (canang murni organik vs yang tercampur staples/plastik/dupa).
+3. classification_reason WAJIB berisi penjelasan spesifik dalam bahasa Indonesia mengenai alasan objek tersebut diklasifikasikan ke dalam trash_category terpilih berdasarkan jenis material dan kondisi fisiknya (misal: bersih vs berminyak/terkontaminasi/berlapis plastik).
+4. confidence_score bernilai desimal float antara 0.0 sampai 1.0.
+5. action_instruction berisi instruksi pemilahan ringkas, jelas, dan dapat langsung dipraktikkan dalam bahasa Indonesia.
+6. balinese_context_note berisi relevansi budaya/adat Bali jika relevan (misal: penanganan sisa upacara, canang sari, daksina, pura, banjar). Jika tidak ada kaitan lokal khusus, isi null.
+7. analysis_status: "completed" jika objek sampah terdeteksi jelas. "uncertain" jika gambar buram, tidak jelas, atau objek bukan sampah. Jika confidence_score < 0.60, set "uncertain".
 
 Keluarkan HANYA JSON objek tunggal tanpa teks tambahan dengan format:
 {
   "material_detected": string,
   "trash_category": "ORGANIK" | "ANORGANIK" | "RESIDU" | "B3",
   "confidence_score": number,
+  "classification_reason": string,
   "action_instruction": string,
   "balinese_context_note": string | null,
   "analysis_status": "completed" | "uncertain"
@@ -48,7 +54,7 @@ export async function analyzeWasteWithDeepSeek(
   }
 
   const baseUrl = (process.env.DEEPSEEK_BASE_URL || 'https://api.deepseek.com').replace(/\/+$/, '');
-  const model = process.env.DEEPSEEK_MODEL || 'deepseek-chat';
+  const model = process.env.DEEPSEEK_MODEL || 'deepseek-flash';
 
   const base64Data = imageBuffer.toString('base64');
   const imageUrl = `data:${mimeType};base64,${base64Data}`;
@@ -65,7 +71,7 @@ export async function analyzeWasteWithDeepSeek(
         content: [
           {
             type: 'text',
-            text: 'Klasifikasikan jenis material sampah pada gambar ini dan tentukan kategori pemilahannya.',
+            text: 'Klasifikasikan jenis material sampah pada gambar ini, perhatikan kondisi fisiknya (apakah bersih atau terkontaminasi/bekas pakai), tentukan kategori pemilahannya, dan berikan alasan klasifikasinya.',
           },
           {
             type: 'image_url',
@@ -80,7 +86,7 @@ export async function analyzeWasteWithDeepSeek(
       type: 'json_object',
     },
     temperature: 0.1,
-    max_tokens: 500,
+    max_tokens: 2048,
   };
 
   let response: Response;
@@ -139,6 +145,10 @@ export async function analyzeWasteWithDeepSeek(
     material_detected: String(parsed.material_detected || 'Material tidak dikenal'),
     trash_category: category,
     confidence_score: confidence,
+    classification_reason: String(
+      parsed.classification_reason ||
+        'Klasifikasi ditentukan berdasarkan karakteristik visual, kondisi fisik, dan sifat keteruraian material.'
+    ),
     action_instruction: String(parsed.action_instruction || 'Pilah sampah sesuai kategori yang ditentukan.'),
     balinese_context_note: parsed.balinese_context_note ? String(parsed.balinese_context_note) : null,
     analysis_status: status,
