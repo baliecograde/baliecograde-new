@@ -1,5 +1,6 @@
 import fs from 'node:fs';
 import path from 'node:path';
+import zlib from 'node:zlib';
 
 // Load environment variables from .env.local or .env if present
 function loadEnv() {
@@ -22,22 +23,39 @@ function loadEnv() {
 
 loadEnv();
 
-// Minimal valid 1x1 JPEG image bytes
-const MINIMAL_JPEG = Buffer.from([
-  0xff, 0xd8, 0xff, 0xe0, 0x00, 0x10, 0x4a, 0x46, 0x49, 0x46, 0x00, 0x01,
-  0x01, 0x01, 0x00, 0x48, 0x00, 0x48, 0x00, 0x00, 0xff, 0xdb, 0x00, 0x43,
-  0x00, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
-  0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
-  0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
-  0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
-  0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
-  0xff, 0xff, 0xff, 0xff, 0xc0, 0x00, 0x0b, 0x08, 0x00, 0x01, 0x00, 0x01,
-  0x01, 0x01, 0x11, 0x00, 0xff, 0xc4, 0x00, 0x1f, 0x00, 0x00, 0x01, 0x05,
-  0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-  0x00, 0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0a,
-  0x0b, 0xff, 0xda, 0x00, 0x08, 0x01, 0x01, 0x00, 0x00, 0x3f, 0x00, 0xbf,
-  0x80, 0xff, 0xd9
-]);
+// Generate a valid 64x64 RGB PNG image for vision API testing
+function createSyntheticPng(width = 64, height = 64) {
+  const signature = Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]);
+  function makeChunk(type, data) {
+    const len = Buffer.alloc(4);
+    len.writeUInt32BE(data.length);
+    const typeBuf = Buffer.from(type);
+    const crcInput = Buffer.concat([typeBuf, data]);
+    let crc = 0xffffffff;
+    for (const byte of crcInput) {
+      crc ^= byte;
+      for (let k = 0; k < 8; k++) {
+        crc = (crc >>> 1) ^ (0xedb88320 & -(crc & 1));
+      }
+    }
+    const crcBuf = Buffer.alloc(4);
+    crcBuf.writeUInt32BE((crc ^ 0xffffffff) >>> 0);
+    return Buffer.concat([len, typeBuf, data, crcBuf]);
+  }
+  const ihdr = Buffer.alloc(13);
+  ihdr.writeUInt32BE(width, 0);
+  ihdr.writeUInt32BE(height, 4);
+  ihdr[8] = 8; // bit depth
+  ihdr[9] = 2; // color type RGB
+  const raw = Buffer.alloc(height * (1 + width * 3), 210);
+  for (let y = 0; y < height; y++) {
+    raw[y * (1 + width * 3)] = 0; // filter byte
+  }
+  const idat = zlib.deflateSync(raw);
+  return Buffer.concat([signature, makeChunk('IHDR', ihdr), makeChunk('IDAT', idat), makeChunk('IEND', Buffer.alloc(0))]);
+}
+
+const SYNTHETIC_IMAGE = createSyntheticPng(64, 64);
 
 async function sendScanRequest(targetUrl, imageBuffer, mimeType, filename, locationData) {
   const formData = new FormData();
@@ -70,9 +88,9 @@ async function runTests() {
   const targetUrl = args.find((a) => a.startsWith('http')) || 'http://localhost:3000/api/scans/analyze';
   const customImagePath = args.find((a) => !a.startsWith('http') && !a.startsWith('--'));
 
-  let imageBuffer = MINIMAL_JPEG;
-  let mimeType = 'image/jpeg';
-  let filename = 'sample.jpg';
+  let imageBuffer = SYNTHETIC_IMAGE;
+  let mimeType = 'image/png';
+  let filename = 'sample.png';
 
   if (customImagePath) {
     const resolvedPath = path.resolve(process.cwd(), customImagePath);
@@ -87,7 +105,7 @@ async function runTests() {
     else mimeType = 'image/jpeg';
     console.log(`Menggunakan gambar lokal: ${resolvedPath} (${imageBuffer.length} bytes, ${mimeType})`);
   } else {
-    console.log(`Menggunakan 1x1 test JPEG synthetic (${imageBuffer.length} bytes)`);
+    console.log(`Menggunakan 64x64 test PNG synthetic (${imageBuffer.length} bytes)`);
   }
 
   console.log(`Target URL: ${targetUrl}\n=============================================`);
@@ -133,13 +151,14 @@ async function runTests() {
   });
   console.log(`Status: ${res3.status}`);
   if (res3.status === 200 && res3.body?.data) {
-    const { regency, district, material, category, confidence } = res3.body.data;
+    const { regency, district, material, category, confidence, reason } = res3.body.data;
     console.log(`✅ PASS: Berhasil diproses!`);
     console.log(`   - Kabupaten : ${regency}`);
     console.log(`   - Kecamatan : ${district}`);
     console.log(`   - Material  : ${material}`);
     console.log(`   - Kategori  : ${category}`);
     console.log(`   - Akurasi AI: ${confidence}`);
+    console.log(`   - Alasan AI : ${reason}`);
   } else {
     console.error('❌ FAIL on Test 3:', JSON.stringify(res3.body, null, 2));
   }
@@ -154,10 +173,12 @@ async function runTests() {
   });
   console.log(`Status: ${res4.status}`);
   if (res4.status === 200 && res4.body?.data) {
-    const { regency, district } = res4.body.data;
+    const { regency, district, category, reason } = res4.body.data;
     console.log(`✅ PASS: Berhasil diproses!`);
     console.log(`   - Kabupaten : ${regency}`);
     console.log(`   - Kecamatan : ${district}`);
+    console.log(`   - Kategori  : ${category}`);
+    console.log(`   - Alasan AI : ${reason}`);
   } else {
     console.error('❌ FAIL on Test 4:', JSON.stringify(res4.body, null, 2));
   }
