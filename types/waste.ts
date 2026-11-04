@@ -1,5 +1,10 @@
 export type WasteCategory = 'ORGANIK' | 'ANORGANIK' | 'RESIDU' | 'B3';
-export interface ScanArea { regency: string | null; district: string | null }
+
+export interface ScanArea {
+  regency: string | null;
+  district: string | null;
+}
+
 export interface WasteScan {
   id: string;
   material: string | null;
@@ -14,6 +19,7 @@ export interface WasteScan {
   image_url: string | null;
   scanned_at: string;
 }
+
 export interface ScanSummary {
   total: number;
   activeRegencies: number;

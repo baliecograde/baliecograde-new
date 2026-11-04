@@ -110,7 +110,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       data: {
         id: scan.id, material: result.material, category: result.category, confidence,
-        instruction: actionInstruction, local_context: null,
+        reason: result.reason, instruction: result.instruction, local_context: result.localContext,
         analysis_status: 'completed', review_status: row.review_status,
         regency: region.regency, district: region.district, image_url: signed?.signedUrl ?? null,
       },
