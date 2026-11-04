@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { analyzeWasteWithDeepSeek, DeepSeekError } from '@/lib/server/deepseek';
-import { resolveLocationFromCoordinates } from '@/lib/server/geocoding';
+import { resolveLocationFromCoordinates, LocationValidationError } from '@/lib/server/geocoding';
 import type { AnalyzeScanSuccessResponse, ApiErrorResponse } from '@/types/api';
 
 const ALLOWED_MIME_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp']);
@@ -74,26 +74,50 @@ export async function POST(req: NextRequest): Promise<NextResponse<AnalyzeScanSu
     );
   }
 
-  // Parse GPS coordinates if supplied
+  // Parse and strictly validate GPS coordinates (user location is required)
   const latRaw = formData.get('latitude');
   const lngRaw = formData.get('longitude');
   const accRaw = formData.get('accuracy');
   const capturedAtRaw = formData.get('captured_at');
 
-  const latitude = latRaw !== null && latRaw !== '' ? Number(latRaw) : null;
-  const longitude = lngRaw !== null && lngRaw !== '' ? Number(lngRaw) : null;
+  if (latRaw === null || latRaw === '' || lngRaw === null || lngRaw === '') {
+    return NextResponse.json(
+      {
+        error: {
+          code: 'MISSING_COORDINATES',
+          message: 'Izin lokasi diperlukan. Koordinat GPS latitude dan longitude wajib disertakan.',
+        },
+      },
+      { status: 400 }
+    );
+  }
+
+  const latitude = Number(latRaw);
+  const longitude = Number(lngRaw);
   const accuracy = accRaw !== null && accRaw !== '' ? Number(accRaw) : null;
   const capturedAt = typeof capturedAtRaw === 'string' && capturedAtRaw.trim() ? capturedAtRaw.trim() : null;
 
   let location;
   try {
-    location = resolveLocationFromCoordinates(
-      isNaN(Number(latitude)) ? null : latitude,
-      isNaN(Number(longitude)) ? null : longitude,
-      isNaN(Number(accuracy)) ? null : accuracy,
+    location = await resolveLocationFromCoordinates(
+      isNaN(latitude) ? null : latitude,
+      isNaN(longitude) ? null : longitude,
+      accuracy !== null && isNaN(accuracy) ? null : accuracy,
       capturedAt
     );
   } catch (err: unknown) {
+    if (err instanceof LocationValidationError) {
+      return NextResponse.json(
+        {
+          error: {
+            code: err.code,
+            message: err.message,
+          },
+        },
+        { status: err.statusCode }
+      );
+    }
+
     const message = err instanceof Error ? err.message : 'Invalid GPS coordinates';
     return NextResponse.json(
       {
@@ -119,6 +143,7 @@ export async function POST(req: NextRequest): Promise<NextResponse<AnalyzeScanSu
         material: aiResult.material_detected,
         category: aiResult.trash_category,
         confidence: aiResult.confidence_score,
+        reason: aiResult.classification_reason,
         instruction: aiResult.action_instruction,
         local_context: aiResult.balinese_context_note,
         regency: location.regency,
