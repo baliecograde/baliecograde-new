@@ -85,6 +85,12 @@ export async function POST(request: NextRequest) {
     const threshold = getConfidenceThreshold();
     const confidence = result.confidence === null ? null : Number(result.confidence.toFixed(5));
     const needsReview = result.category === null || confidence === null || confidence < threshold;
+    const actionInstruction = result.category ? {
+      ORGANIK: 'Pisahkan dan olah sebagai sampah organik atau kompos.',
+      ANORGANIK: 'Bersihkan lalu pilah untuk didaur ulang atau setorkan ke bank sampah.',
+      RESIDU: 'Buang terpisah dari sampah organik dan material daur ulang.',
+      B3: 'Simpan dengan aman dan serahkan ke fasilitas pengumpulan limbah B3 resmi.',
+    }[result.category] : 'Pisahkan sementara dan minta verifikasi sebelum membuang.';
     const row = {
       image_path: imagePath,
       regency: region.regency,
@@ -92,12 +98,7 @@ export async function POST(request: NextRequest) {
       material_detected: result.material,
       trash_category: result.category,
       confidence_score: confidence,
-      action_instruction: result.category ? {
-        ORGANIK: 'Pisahkan dan olah sebagai sampah organik atau kompos.',
-        ANORGANIK: 'Bersihkan lalu pilah untuk didaur ulang atau setorkan ke bank sampah.',
-        RESIDU: 'Buang terpisah dari sampah organik dan material daur ulang.',
-        B3: 'Simpan dengan aman dan serahkan ke fasilitas pengumpulan limbah B3 resmi.',
-      }[result.category] : 'Pisahkan sementara dan minta verifikasi sebelum membuang.',
+      action_instruction: actionInstruction,
       balinese_context_note: null,
       analysis_status: 'completed',
       analysis_error_code: null,
@@ -109,7 +110,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       data: {
         id: scan.id, material: result.material, category: result.category, confidence,
-        instruction: result.instruction, local_context: result.localContext,
+        instruction: actionInstruction, local_context: null,
         analysis_status: 'completed', review_status: row.review_status,
         regency: region.regency, district: region.district, image_url: signed?.signedUrl ?? null,
       },
