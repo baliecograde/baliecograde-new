@@ -26,7 +26,7 @@ export function HeroSection() {
         <dl className="animate-fade-up mt-8 grid max-w-xl grid-cols-1 gap-4 sm:grid-cols-3 [animation-delay:240ms]">
           <div className="rounded-2xl border border-white/15 bg-white/5 p-4 backdrop-blur-sm">
             <dt className="text-xs font-medium uppercase tracking-wide text-emerald-200">Kategori</dt>
-            <dd className="mt-1 text-2xl font-bold text-white">3</dd>
+            <dd className="mt-1 text-2xl font-bold text-white">4</dd>
           </div>
           <div className="rounded-2xl border border-white/15 bg-white/5 p-4 backdrop-blur-sm">
             <dt className="text-xs font-medium uppercase tracking-wide text-emerald-200">Kabupaten/Kota</dt>

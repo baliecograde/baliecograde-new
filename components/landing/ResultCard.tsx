@@ -43,7 +43,10 @@ function ResultDetails({ outcome }: { outcome: ScanOutcome }) {
   return (
     <div className="animate-fade-up mt-5 flex flex-col gap-6">
       <div className="flex flex-wrap items-center justify-between gap-4">
-        <WasteBadge category={outcome.category} size="lg" />
+        <div className="min-w-0">
+          <WasteBadge category={outcome.category} size="lg" />
+          <p className="mt-2 text-sm font-medium text-slate-600 dark:text-slate-300">{outcome.material}</p>
+        </div>
         <div className="min-w-[10rem] flex-1 sm:max-w-[12rem]">
           <div className="flex items-baseline justify-between text-sm">
             <span className="font-semibold text-slate-700 dark:text-slate-200">Tingkat keyakinan</span>
@@ -70,25 +73,35 @@ function ResultDetails({ outcome }: { outcome: ScanOutcome }) {
         {outcome.area.village}, {outcome.area.regency}, Bali
       </p>
 
+      {outcome.analysisStatus === 'uncertain' && (
+        <p role="status" className="rounded-xl bg-amber-50 p-3 text-sm text-amber-900 dark:bg-amber-950/40 dark:text-amber-200">
+          Hasil ini belum pasti. Coba ambil foto yang lebih jelas sebelum memilah.
+        </p>
+      )}
+
       <div>
         <h3 className="flex items-center gap-2 font-semibold text-slate-900 dark:text-white">
           <ListChecks className="h-5 w-5 text-emerald-600 dark:text-emerald-400" aria-hidden="true" />
-          Cara membuang yang tepat
+          Alasan klasifikasi
         </h3>
-        <ol className="mt-4 space-y-3">
-          {meta.instructions.map((step, index) => (
-            <li
-              key={step}
-              className="flex gap-3 rounded-xl bg-slate-50 p-3.5 text-sm leading-relaxed text-slate-700 dark:bg-slate-800/60 dark:text-slate-200"
-            >
-              <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-emerald-700 text-xs font-bold text-white">
-                {index + 1}
-              </span>
-              <span>{step}</span>
-            </li>
-          ))}
-        </ol>
+        <p className="mt-3 rounded-xl bg-slate-50 p-3.5 text-sm leading-relaxed text-slate-700 dark:bg-slate-800/60 dark:text-slate-200">
+          {outcome.reason}
+        </p>
       </div>
+
+      <div>
+        <h3 className="font-semibold text-slate-900 dark:text-white">Cara membuang yang tepat</h3>
+        <p className="mt-3 rounded-xl bg-slate-50 p-3.5 text-sm leading-relaxed text-slate-700 dark:bg-slate-800/60 dark:text-slate-200">
+          {outcome.instruction}
+        </p>
+      </div>
+
+      {outcome.localContext && (
+        <p className="rounded-xl border border-emerald-200 bg-emerald-50 p-3.5 text-sm leading-relaxed text-emerald-900 dark:border-emerald-900 dark:bg-emerald-950/40 dark:text-emerald-200">
+          <span className="font-semibold">Konteks Bali: </span>
+          {outcome.localContext}
+        </p>
+      )}
 
       {outcome.saved ? (
         <p className="flex items-center gap-2 text-sm font-medium text-emerald-700 dark:text-emerald-300">

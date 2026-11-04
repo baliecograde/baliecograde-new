@@ -11,7 +11,7 @@ import { useWasteScan } from '@/hooks/useWasteScan';
 export default function LandingPage() {
   const { theme, toggleTheme } = useTheme();
   const userArea = useUserArea();
-  const scan = useWasteScan(userArea.area);
+  const scan = useWasteScan(userArea.area, userArea.coordinates, userArea.status);
 
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 transition-colors">

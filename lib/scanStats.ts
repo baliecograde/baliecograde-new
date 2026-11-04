@@ -38,7 +38,7 @@ export function filterScans(scans: WasteScan[], filters: ScanFilters): WasteScan
 
 export function summarizeScans(scans: WasteScan[]): ScanSummary {
   const byRegency: Record<string, number> = {};
-  const byCategory: Record<WasteCategory, number> = { organic: 0, inorganic: 0, residue: 0 };
+  const byCategory: Record<WasteCategory, number> = { organic: 0, inorganic: 0, residue: 0, b3: 0 };
 
   for (const scan of scans) {
     byRegency[scan.regency] = (byRegency[scan.regency] ?? 0) + 1;

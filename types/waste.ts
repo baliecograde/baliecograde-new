@@ -1,13 +1,26 @@
-export type WasteCategory = 'organic' | 'inorganic' | 'residue';
+export type WasteCategory = 'organic' | 'inorganic' | 'residue' | 'b3';
 
 export interface ClassificationResult {
   category: WasteCategory;
   confidence: number;
+  material: string;
+  reason: string;
+  instruction: string;
+  localContext: string | null;
+  analysisStatus: 'completed' | 'uncertain';
+  area: ScanArea;
 }
 
 export interface ScanArea {
   regency: string;
   village: string;
+}
+
+export interface ScanCoordinates {
+  latitude: number;
+  longitude: number;
+  accuracy: number;
+  capturedAt: string;
 }
 
 export interface WasteScan {

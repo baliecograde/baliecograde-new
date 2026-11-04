@@ -32,7 +32,6 @@ export function AdminDashboardPage() {
 
   useEffect(() => {
     let cancelled = false;
-    setLoadState('loading');
 
     fetchWasteScans(getRangeStartIso(range))
       .then((rows) => {
@@ -74,7 +73,10 @@ export function AdminDashboardPage() {
       <div className="flex min-w-0 flex-1 flex-col">
         <AdminHeader
           range={range}
-          onRangeChange={setRange}
+          onRangeChange={(nextRange) => {
+            setLoadState('loading');
+            setRange(nextRange);
+          }}
           theme={theme}
           onToggleTheme={toggleTheme}
           onOpenMenu={() => setMenuOpen(true)}
@@ -97,7 +99,10 @@ export function AdminDashboardPage() {
               </div>
               <button
                 type="button"
-                onClick={() => setReloadKey((key) => key + 1)}
+                onClick={() => {
+                  setLoadState('loading');
+                  setReloadKey((key) => key + 1);
+                }}
                 className="inline-flex items-center gap-2 rounded-xl bg-slate-900 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-slate-700 dark:bg-white dark:text-slate-900 dark:hover:bg-slate-200"
               >
                 <RefreshCw className="h-4 w-4" aria-hidden="true" />

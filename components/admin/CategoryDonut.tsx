@@ -13,24 +13,25 @@ const CIRCUMFERENCE = 2 * Math.PI * RADIUS;
 export function CategoryDonut({ countsByCategory, activeCategory, onSelect }: CategoryDonutProps) {
   const total = WASTE_CATEGORY_ORDER.reduce((sum, category) => sum + countsByCategory[category], 0);
 
-  let cumulativeFraction = 0;
-  const segments = WASTE_CATEGORY_ORDER.map((category) => {
+  const segments = WASTE_CATEGORY_ORDER.map((category, index) => {
     const fraction = total > 0 ? countsByCategory[category] / total : 0;
-    const segment = {
+    const cumulativeFraction = WASTE_CATEGORY_ORDER.slice(0, index).reduce(
+      (sum, previousCategory) => sum + (total > 0 ? countsByCategory[previousCategory] / total : 0),
+      0,
+    );
+    return {
       category,
       fraction,
       dashLength: fraction * CIRCUMFERENCE,
       dashOffset: -cumulativeFraction * CIRCUMFERENCE,
     };
-    cumulativeFraction += fraction;
-    return segment;
   });
 
   return (
     <section className="rounded-2xl bg-white p-5 shadow-soft ring-1 ring-slate-200/70 sm:p-6 dark:bg-slate-900 dark:ring-slate-800">
       <div className="mb-5">
         <h2 className="text-lg font-bold text-slate-900 dark:text-white">Rasio Kategori Sampah</h2>
-        <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">Organik, anorganik, dan residu.</p>
+        <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">Organik, anorganik, residu, dan B3.</p>
       </div>
 
       <div className="flex flex-col items-center gap-6 sm:flex-row sm:justify-center lg:flex-col xl:flex-row">

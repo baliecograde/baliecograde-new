@@ -2,20 +2,31 @@ import { useCallback, useEffect, useState } from 'react';
 import { classifyWaste } from '@/lib/classifier';
 import { createThumbnailDataUrl } from '@/lib/thumbnail';
 import { recordWasteScan } from '@/lib/wasteScans';
-import type { ScanArea, WasteCategory } from '@/types/waste';
+import type { AreaStatus } from '@/hooks/useUserArea';
+import type { ClassificationResult, ScanArea, ScanCoordinates } from '@/types/waste';
 
 export type ScanStatus = 'idle' | 'scanning' | 'done' | 'error';
 
 export interface ScanOutcome {
-  category: WasteCategory;
+  category: ClassificationResult['category'];
   confidence: number;
+  material: string;
+  reason: string;
+  instruction: string;
+  localContext: string | null;
+  analysisStatus: ClassificationResult['analysisStatus'];
   area: ScanArea;
   saved: boolean;
 }
 
-const ACCEPTED_PREFIX = 'image/';
+const ACCEPTED_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp']);
+const MAX_FILE_SIZE_BYTES = 10 * 1024 * 1024;
 
-export function useWasteScan(area: ScanArea) {
+export function useWasteScan(
+  area: ScanArea,
+  coordinates: ScanCoordinates | null,
+  locationStatus: AreaStatus,
+) {
   const [file, setFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [status, setStatus] = useState<ScanStatus>('idle');
@@ -23,21 +34,21 @@ export function useWasteScan(area: ScanArea) {
   const [message, setMessage] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!file) {
-      setPreviewUrl(null);
-      return;
-    }
-    const url = URL.createObjectURL(file);
-    setPreviewUrl(url);
-    return () => URL.revokeObjectURL(url);
-  }, [file]);
+    if (!previewUrl) return;
+    return () => URL.revokeObjectURL(previewUrl);
+  }, [previewUrl]);
 
   const selectFile = useCallback((next: File) => {
-    if (!next.type.startsWith(ACCEPTED_PREFIX)) {
+    if (!ACCEPTED_TYPES.has(next.type)) {
       setMessage('Hanya file gambar (JPG, PNG, atau WEBP) yang bisa dianalisis.');
       return;
     }
+    if (next.size > MAX_FILE_SIZE_BYTES) {
+      setMessage('Ukuran foto maksimal 10 MB.');
+      return;
+    }
     setFile(next);
+    setPreviewUrl(URL.createObjectURL(next));
     setOutcome(null);
     setStatus('idle');
     setMessage(null);
@@ -45,6 +56,7 @@ export function useWasteScan(area: ScanArea) {
 
   const clearFile = useCallback(() => {
     setFile(null);
+    setPreviewUrl(null);
     setOutcome(null);
     setStatus('idle');
     setMessage(null);
@@ -52,18 +64,30 @@ export function useWasteScan(area: ScanArea) {
 
   const classify = useCallback(async () => {
     if (!file) return;
+    if (!coordinates) {
+      setStatus('error');
+      setMessage(
+        locationStatus === 'locating'
+          ? 'Sedang mendeteksi lokasi. Tunggu sebentar lalu coba lagi.'
+          : locationStatus === 'outside-bali'
+            ? 'Analisis hanya tersedia untuk lokasi di Bali.'
+            : 'Izin lokasi diperlukan untuk menganalisis foto. Aktifkan akses lokasi lalu muat ulang halaman.',
+      );
+      return;
+    }
+
     setStatus('scanning');
     setMessage(null);
 
     try {
-      const classification = await classifyWaste(file);
+      const classification = await classifyWaste(file, coordinates, area);
       const thumbnail = await createThumbnailDataUrl(file).catch(() => null);
 
       let saved = true;
       try {
         await recordWasteScan({
-          regency: area.regency,
-          village: area.village,
+          regency: classification.area.regency,
+          village: classification.area.village,
           category: classification.category,
           confidence: classification.confidence,
           thumbnail,
@@ -73,20 +97,18 @@ export function useWasteScan(area: ScanArea) {
       }
 
       setOutcome({
-        category: classification.category,
-        confidence: classification.confidence,
-        area,
+        ...classification,
         saved,
       });
       setStatus('done');
-    } catch {
+    } catch (error) {
       setStatus('error');
-      setMessage('Foto belum bisa dianalisis. Silakan coba lagi.');
+      setMessage(error instanceof Error ? error.message : 'Foto belum bisa dianalisis. Silakan coba lagi.');
     }
-  }, [file, area]);
+  }, [file, area, coordinates, locationStatus]);
 
   return {
-    previewUrl,
+    previewUrl: file ? previewUrl : null,
     hasFile: file !== null,
     status,
     outcome,

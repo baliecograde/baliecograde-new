@@ -1,4 +1,4 @@
-import { Leaf, Recycle, Trash2, type LucideIcon } from 'lucide-react';
+import { Biohazard, Leaf, Recycle, Trash2, type LucideIcon } from 'lucide-react';
 import type { WasteCategory } from '@/types/waste';
 
 export interface WasteCategoryMeta {
@@ -43,6 +43,17 @@ export const WASTE_CATEGORIES: Record<WasteCategory, WasteCategoryMeta> = {
       'Baterai, lampu, dan limbah medis diserahkan ke titik pengumpulan khusus.',
     ],
   },
+  b3: {
+    label: 'B3',
+    icon: Biohazard,
+    badgeClass: 'bg-amber-600 text-white',
+    chartColor: '#D97706',
+    instructions: [
+      'Pisahkan dari sampah rumah tangga lainnya dan jangan dibuka atau dibakar.',
+      'Simpan dengan aman dalam wadah tertutup dan beri tanda bila memungkinkan.',
+      'Serahkan ke titik pengumpulan limbah B3 atau fasilitas berwenang.',
+    ],
+  },
 };
 
-export const WASTE_CATEGORY_ORDER: WasteCategory[] = ['organic', 'inorganic', 'residue'];
+export const WASTE_CATEGORY_ORDER: WasteCategory[] = ['organic', 'inorganic', 'residue', 'b3'];
