@@ -15,9 +15,9 @@ Aturan Klasifikasi:
    Perhatikan kondisi visual objek (apakah baru/bersih, basah, berminyak, terkontaminasi sisa makanan, atau memiliki lapisan laminasi plastik/lilin):
    - Contoh Kertas Minyak / Pembungkus Makanan: Kertas minyak yang sudah digunakan membungkus makanan (terkontaminasi minyak/lemak/sisa makanan) atau memiliki lapisan laminasi plastik (PE) WAJIB masuk "RESIDU" karena minyak dan lapisan plastik menghambat proses daur ulang serat kertas maupun pengomposan. Sebaliknya, kertas baru/bersih tanpa lapisan plastik dan tanpa noda minyak masuk "ANORGANIK" karena seratnya masih dapat didaur ulang.
    - Prinsip yang sama berlaku untuk kardus/kertas makanan, wadah plastik bersih vs kotor berat, serta sarana upacara (canang murni organik vs yang tercampur staples/plastik/dupa).
-3. classification_reason WAJIB berisi penjelasan spesifik dalam bahasa Indonesia mengenai alasan objek tersebut diklasifikasikan ke dalam trash_category terpilih berdasarkan jenis material dan kondisi fisiknya (misal: bersih vs berminyak/terkontaminasi/berlapis plastik).
+3. classification_reason WAJIB ringkas dalam bahasa Indonesia, maksimal 25 kata dalam 1 kalimat. Sebutkan material/kondisi yang terlihat dan alasan utama kategorinya; hindari pengulangan.
 4. confidence_score bernilai desimal float antara 0.0 sampai 1.0.
-5. action_instruction berisi instruksi pemilahan ringkas, jelas, dan dapat langsung dipraktikkan dalam bahasa Indonesia.
+5. action_instruction WAJIB ringkas dalam bahasa Indonesia, maksimal 35 kata dan 1-2 kalimat. Sampaikan tindakan utama serta peringatan keselamatan penting; hindari penjelasan berulang.
 6. balinese_context_note berisi relevansi budaya/adat Bali jika relevan (misal: penanganan sisa upacara, canang sari, daksina, pura, banjar). Jika tidak ada kaitan lokal khusus, isi null.
 7. analysis_status: "completed" jika objek sampah terdeteksi jelas. "uncertain" jika gambar buram, tidak jelas, atau objek bukan sampah. Jika confidence_score < 0.60, set "uncertain".
 
@@ -154,4 +154,3 @@ export async function analyzeWasteWithDeepSeek(
     analysis_status: status,
   };
 }
-

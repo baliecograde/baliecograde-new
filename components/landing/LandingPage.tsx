@@ -28,7 +28,13 @@ export default function LandingPage() {
             onClear={scan.clearFile}
             onClassify={scan.classify}
           />
-          <ResultCard status={scan.status} outcome={scan.outcome} />
+          <ResultCard
+            status={scan.status}
+            outcome={scan.outcome}
+            showUncertainDialog={scan.showUncertainDialog}
+            onDismissUncertainDialog={scan.dismissUncertainDialog}
+            onFileSelect={scan.selectFile}
+          />
         </div>
       </main>
     </div>

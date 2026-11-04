@@ -32,6 +32,7 @@ export function useWasteScan(
   const [status, setStatus] = useState<ScanStatus>('idle');
   const [outcome, setOutcome] = useState<ScanOutcome | null>(null);
   const [message, setMessage] = useState<string | null>(null);
+  const [showUncertainDialog, setShowUncertainDialog] = useState(false);
 
   useEffect(() => {
     if (!previewUrl) return;
@@ -50,6 +51,7 @@ export function useWasteScan(
     setFile(next);
     setPreviewUrl(URL.createObjectURL(next));
     setOutcome(null);
+    setShowUncertainDialog(false);
     setStatus('idle');
     setMessage(null);
   }, []);
@@ -58,6 +60,7 @@ export function useWasteScan(
     setFile(null);
     setPreviewUrl(null);
     setOutcome(null);
+    setShowUncertainDialog(false);
     setStatus('idle');
     setMessage(null);
   }, []);
@@ -100,6 +103,7 @@ export function useWasteScan(
         ...classification,
         saved,
       });
+      setShowUncertainDialog(classification.analysisStatus === 'uncertain');
       setStatus('done');
     } catch (error) {
       setStatus('error');
@@ -112,6 +116,8 @@ export function useWasteScan(
     hasFile: file !== null,
     status,
     outcome,
+    showUncertainDialog,
+    dismissUncertainDialog: () => setShowUncertainDialog(false),
     message,
     selectFile,
     clearFile,
