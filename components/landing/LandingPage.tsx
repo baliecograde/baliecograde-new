@@ -1,5 +1,5 @@
 'use client';
-
+import Link from 'next/link';
 import { HeroSection } from '@/components/landing/HeroSection';
 import { ResultCard } from '@/components/landing/ResultCard';
 import { UploadCard } from '@/components/landing/UploadCard';
@@ -8,10 +8,10 @@ import { useTheme } from '@/hooks/useTheme';
 import { useUserArea } from '@/hooks/useUserArea';
 import { useWasteScan } from '@/hooks/useWasteScan';
 
-export default function LandingPage() {
+export function LandingPage() {
   const { theme, toggleTheme } = useTheme();
   const userArea = useUserArea();
-  const scan = useWasteScan(userArea.area, userArea.coordinates, userArea.status);
+  const scan = useWasteScan();
 
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 transition-colors">
@@ -37,6 +37,9 @@ export default function LandingPage() {
           />
         </div>
       </main>
+      <footer className="mx-auto flex max-w-6xl justify-end px-4 pb-8">
+        <Link href="/admin-login" className="text-xs text-slate-500">Admin</Link>
+      </footer>
     </div>
   );
 }

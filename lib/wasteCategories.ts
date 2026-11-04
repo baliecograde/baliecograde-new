@@ -1,4 +1,4 @@
-import { Biohazard, Leaf, Recycle, Trash2, type LucideIcon } from 'lucide-react';
+import { Flame, Leaf, Recycle, Trash2, type LucideIcon } from 'lucide-react';
 import type { WasteCategory } from '@/types/waste';
 
 export interface WasteCategoryMeta {
@@ -10,50 +10,50 @@ export interface WasteCategoryMeta {
 }
 
 export const WASTE_CATEGORIES: Record<WasteCategory, WasteCategoryMeta> = {
-  organic: {
-    label: 'Organic',
+  ORGANIK: {
+    label: 'Organik',
     icon: Leaf,
     badgeClass: 'bg-emerald-700 text-white',
     chartColor: '#059669',
     instructions: [
       'Pisahkan sisa makanan, daun, dan sayuran dari plastik.',
-      'Buang ke tempat sampah hijau atau olah menjadi kompos di rumah.',
-      'Jangan dicampur dengan plastik agar mudah diolah.',
+      'Olah menjadi kompos atau buang ke tempat sampah organik.',
+      'Jangan dicampur dengan material daur ulang.',
     ],
   },
-  inorganic: {
-    label: 'Anorganic',
+  ANORGANIK: {
+    label: 'Anorganik',
     icon: Recycle,
     badgeClass: 'bg-sky-600 text-white',
     chartColor: '#0284C7',
     instructions: [
-      'Bersihkan dan keringkan botol, kaleng, atau kertas dari sisa makanan.',
-      'Buang ke tempat sampah kuning atau setorkan ke bank sampah terdekat.',
-      'Remukkan kemasan besar agar lebih hemat tempat.',
+      'Bersihkan dan keringkan material yang dapat didaur ulang.',
+      'Setorkan ke bank sampah atau titik daur ulang.',
+      'Pisahkan berdasarkan jenis material jika fasilitas meminta.',
     ],
   },
-  residue: {
+  RESIDU: {
     label: 'Residu',
     icon: Trash2,
     badgeClass: 'bg-rose-600 text-white',
     chartColor: '#E11D48',
     instructions: [
-      'Jangan dibuang bersama sampah organik atau daur ulang.',
-      'Masukkan ke tempat sampah abu-abu atau kantong tertutup terpisah.',
-      'Baterai, lampu, dan limbah medis diserahkan ke titik pengumpulan khusus.',
+      'Pisahkan dari sampah organik dan material daur ulang.',
+      'Masukkan ke wadah residu tertutup.',
+      'Jangan masukkan limbah berbahaya ke alur residu biasa.',
     ],
   },
-  b3: {
+  B3: {
     label: 'B3',
-    icon: Biohazard,
-    badgeClass: 'bg-amber-600 text-white',
+    icon: Flame,
+    badgeClass: 'bg-amber-700 text-white',
     chartColor: '#D97706',
     instructions: [
-      'Pisahkan dari sampah rumah tangga lainnya dan jangan dibuka atau dibakar.',
-      'Simpan dengan aman dalam wadah tertutup dan beri tanda bila memungkinkan.',
-      'Serahkan ke titik pengumpulan limbah B3 atau fasilitas berwenang.',
+      'Jangan campur dengan sampah rumah tangga biasa.',
+      'Simpan dengan aman dan hindari kontak langsung.',
+      'Serahkan ke fasilitas pengumpulan limbah B3 resmi.',
     ],
   },
 };
 
-export const WASTE_CATEGORY_ORDER: WasteCategory[] = ['organic', 'inorganic', 'residue', 'b3'];
+export const WASTE_CATEGORY_ORDER: WasteCategory[] = ['ORGANIK', 'ANORGANIK', 'RESIDU', 'B3'];
