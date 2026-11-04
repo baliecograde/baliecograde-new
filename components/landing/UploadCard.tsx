@@ -1,4 +1,5 @@
 import { useRef, useState, type ChangeEvent, type DragEvent } from 'react';
+import Image from 'next/image';
 import { Camera, ImagePlus, RotateCcw, ScanLine, UploadCloud } from 'lucide-react';
 import { ScanningOverlay } from '@/components/landing/ScanningOverlay';
 
@@ -81,7 +82,7 @@ export function UploadCard({
         }`}
       >
         {previewUrl ? (
-          <img src={previewUrl} alt="Pratinjau sampah yang dipilih" className="h-full w-full object-cover" />
+          <Image src={previewUrl} alt="Pratinjau sampah yang dipilih" fill unoptimized sizes="(max-width: 768px) 100vw, 50vw" className="object-cover" />
         ) : (
           <button
             type="button"
