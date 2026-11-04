@@ -39,7 +39,33 @@ const MINIMAL_JPEG = Buffer.from([
   0x80, 0xff, 0xd9
 ]);
 
-async function runTest() {
+async function sendScanRequest(targetUrl, imageBuffer, mimeType, filename, locationData) {
+  const formData = new FormData();
+  const blob = new Blob([imageBuffer], { type: mimeType });
+  formData.append('image', blob, filename);
+
+  if (locationData.latitude !== undefined) formData.append('latitude', String(locationData.latitude));
+  if (locationData.longitude !== undefined) formData.append('longitude', String(locationData.longitude));
+  if (locationData.accuracy !== undefined) formData.append('accuracy', String(locationData.accuracy));
+  if (locationData.captured_at !== undefined) formData.append('captured_at', locationData.captured_at);
+
+  const res = await fetch(targetUrl, {
+    method: 'POST',
+    body: formData,
+  });
+
+  const status = res.status;
+  const contentType = res.headers.get('content-type') || '';
+  let body = null;
+  if (contentType.includes('application/json')) {
+    body = await res.json();
+  } else {
+    body = await res.text();
+  }
+  return { status, body };
+}
+
+async function runTests() {
   const args = process.argv.slice(2);
   const targetUrl = args.find((a) => a.startsWith('http')) || 'http://localhost:3000/api/scans/analyze';
   const customImagePath = args.find((a) => !a.startsWith('http') && !a.startsWith('--'));
@@ -64,46 +90,80 @@ async function runTest() {
     console.log(`Menggunakan 1x1 test JPEG synthetic (${imageBuffer.length} bytes)`);
   }
 
-  const formData = new FormData();
-  const blob = new Blob([imageBuffer], { type: mimeType });
-  formData.append('image', blob, filename);
-  formData.append('latitude', '-8.4095');
-  formData.append('longitude', '115.1889');
-  formData.append('accuracy', '10.5');
-  formData.append('captured_at', new Date().toISOString());
+  console.log(`Target URL: ${targetUrl}\n=============================================`);
 
-  console.log(`\nMengirim POST multipart/form-data ke: ${targetUrl}`);
-  const startTime = Date.now();
-
+  // Test 1: Tanpa Koordinat (Missing Coordinates)
+  console.log('[TEST 1] Mengirim tanpa izin/koordinat lokasi...');
   try {
-    const response = await fetch(targetUrl, {
-      method: 'POST',
-      body: formData,
-    });
-
-    const latency = Date.now() - startTime;
-    console.log(`HTTP Status: ${response.status} ${response.statusText} (${latency}ms)`);
-
-    const contentType = response.headers.get('content-type') || '';
-    if (contentType.includes('application/json')) {
-      const data = await response.json();
-      console.log('\nResponse JSON:');
-      console.log(JSON.stringify(data, null, 2));
-
-      if (response.ok) {
-        console.log('\n[PASS] Endpoint dan DeepSeek berhasil diuji!');
-      } else {
-        console.log('\n[FAIL] Server mengembalikan error terstruktur sesuai instruksi (tanpa mock fallback).');
-      }
+    const res1 = await sendScanRequest(targetUrl, imageBuffer, mimeType, filename, {});
+    console.log(`Status: ${res1.status}, Error Code: ${res1.body?.error?.code}`);
+    if (res1.status === 400 && res1.body?.error?.code === 'MISSING_COORDINATES') {
+      console.log('✅ PASS: Berhasil ditolak dengan MISSING_COORDINATES.');
     } else {
-      const rawText = await response.text();
-      console.log('\nResponse Text:', rawText);
+      console.error('❌ FAIL: Seharusnya ditolak 400 MISSING_COORDINATES. Diterima:', res1);
     }
   } catch (err) {
-    console.error('\nGagal menghubungi server/endpoint:', err.message);
-    console.log('Pastikan server dev berjalan: npm run dev');
+    console.error('❌ Connection error on Test 1:', err.message);
+    console.log('Pastikan server dev aktif (npm run dev).');
+    process.exit(1);
   }
+
+  // Test 2: Koordinat di luar Bali (Jakarta: -6.2088, 106.8456)
+  console.log('\n[TEST 2] Mengirim koordinat di luar wilayah Bali (Jakarta)...');
+  const res2 = await sendScanRequest(targetUrl, imageBuffer, mimeType, filename, {
+    latitude: -6.2088,
+    longitude: 106.8456,
+    accuracy: 15,
+    captured_at: new Date().toISOString(),
+  });
+  console.log(`Status: ${res2.status}, Error Code: ${res2.body?.error?.code}`);
+  if (res2.status === 400 && res2.body?.error?.code === 'OUTSIDE_BALI_REGION') {
+    console.log('✅ PASS: Berhasil ditolak dengan OUTSIDE_BALI_REGION.');
+  } else {
+    console.error('❌ FAIL: Seharusnya ditolak 400 OUTSIDE_BALI_REGION. Diterima:', res2);
+  }
+
+  // Test 3: Koordinat Riil di Bali (Ubud, Gianyar: -8.5069, 115.2625)
+  console.log('\n[TEST 3] Mengirim koordinat riil di Bali (Ubud / Gianyar)...');
+  const res3 = await sendScanRequest(targetUrl, imageBuffer, mimeType, filename, {
+    latitude: -8.5069,
+    longitude: 115.2625,
+    accuracy: 10,
+    captured_at: new Date().toISOString(),
+  });
+  console.log(`Status: ${res3.status}`);
+  if (res3.status === 200 && res3.body?.data) {
+    const { regency, district, material, category, confidence } = res3.body.data;
+    console.log(`✅ PASS: Berhasil diproses!`);
+    console.log(`   - Kabupaten : ${regency}`);
+    console.log(`   - Kecamatan : ${district}`);
+    console.log(`   - Material  : ${material}`);
+    console.log(`   - Kategori  : ${category}`);
+    console.log(`   - Akurasi AI: ${confidence}`);
+  } else {
+    console.error('❌ FAIL on Test 3:', JSON.stringify(res3.body, null, 2));
+  }
+
+  // Test 4: Koordinat Riil di Bali (Denpasar: -8.6705, 115.2126)
+  console.log('\n[TEST 4] Mengirim koordinat riil di Bali (Denpasar)...');
+  const res4 = await sendScanRequest(targetUrl, imageBuffer, mimeType, filename, {
+    latitude: -8.6705,
+    longitude: 115.2126,
+    accuracy: 8,
+    captured_at: new Date().toISOString(),
+  });
+  console.log(`Status: ${res4.status}`);
+  if (res4.status === 200 && res4.body?.data) {
+    const { regency, district } = res4.body.data;
+    console.log(`✅ PASS: Berhasil diproses!`);
+    console.log(`   - Kabupaten : ${regency}`);
+    console.log(`   - Kecamatan : ${district}`);
+  } else {
+    console.error('❌ FAIL on Test 4:', JSON.stringify(res4.body, null, 2));
+  }
+
+  console.log('\n=============================================');
+  console.log('Semua pengujian deteksi lokasi selesai.');
 }
 
-runTest();
-
+runTests();
