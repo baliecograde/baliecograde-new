@@ -6,6 +6,7 @@ export interface DeepSeekAnalysisResult {
   material_detected: string;
   trash_category: CanonicalCategory;
   confidence_score: number;
+  classification_reason: string;
   action_instruction: string;
   balinese_context_note: string | null;
   analysis_status: AnalysisStatus;
@@ -17,6 +18,7 @@ export interface AnalyzeScanRecord {
   material: string | null;
   category: CanonicalCategory | null;
   confidence: number | null;
+  reason: string | null;
   instruction: string | null;
   local_context: string | null;
   regency: string | null;
