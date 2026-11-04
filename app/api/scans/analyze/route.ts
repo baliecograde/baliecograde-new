@@ -143,6 +143,7 @@ export async function POST(req: NextRequest): Promise<NextResponse<AnalyzeScanSu
         material: aiResult.material_detected,
         category: aiResult.trash_category,
         confidence: aiResult.confidence_score,
+        reason: aiResult.classification_reason,
         instruction: aiResult.action_instruction,
         local_context: aiResult.balinese_context_note,
         regency: location.regency,
