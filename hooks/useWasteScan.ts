@@ -1,4 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { createSupabaseBrowserClient } from '@/lib/supabase-browser';
+import { ensureScanSession, GuestSessionError } from '@/lib/guest-session';
 import type { CreateScanRequest, CreateScanResponse, CreateScanResult } from '@/types/api';
 import type { ReviewStatus, ScanArea } from '@/types/waste';
 
@@ -75,7 +77,11 @@ export function useWasteScan() {
   const [outcome, setOutcome] = useState<ScanOutcome | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [showUncertainDialog, setShowUncertainDialog] = useState(false);
+  const [needsCaptcha, setNeedsCaptcha] = useState(false);
+  const [captchaToken, setCaptchaToken] = useState<string | null>(null);
+  const [captchaResetNonce, setCaptchaResetNonce] = useState(0);
   const idempotencyKey = useRef<string | null>(null);
+  const inFlight = useRef(false);
 
   useEffect(() => () => {
     if (previewUrl) URL.revokeObjectURL(previewUrl);
@@ -91,6 +97,9 @@ export function useWasteScan() {
     idempotencyKey.current = crypto.randomUUID();
     setOutcome(null);
     setShowUncertainDialog(false);
+    setNeedsCaptcha(false);
+    setCaptchaToken(null);
+    setCaptchaResetNonce(0);
     setStatus('idle');
     setMessage(null);
   }, []);
@@ -101,47 +110,67 @@ export function useWasteScan() {
     idempotencyKey.current = null;
     setOutcome(null);
     setShowUncertainDialog(false);
+    setNeedsCaptcha(false);
+    setCaptchaToken(null);
+    setCaptchaResetNonce(0);
     setStatus('idle');
     setMessage(null);
   }, []);
 
   const classify = useCallback(async () => {
-    if (!file) return;
+    if (!file || inFlight.current) return;
+    inFlight.current = true;
     setStatus('scanning');
     setMessage(null);
 
     try {
+      const authClient = createSupabaseBrowserClient();
+      try {
+        await ensureScanSession(authClient, captchaToken ?? undefined);
+      } catch (error) {
+        if (error instanceof GuestSessionError && error.code === 'CAPTCHA_REQUIRED') {
+          setNeedsCaptcha(true);
+          setStatus('idle');
+          return;
+        }
+        throw error;
+      }
+      setNeedsCaptcha(false);
+      setCaptchaToken(null);
+
       const location = await captureLocation();
+      if (!location) throw new Error('MISSING_COORDINATES');
       const compressedImage = await compressForUpload(file);
-      const request: CreateScanRequest = location
-        ? {
-            image: compressedImage,
-            location: {
-              latitude: location.latitude,
-              longitude: location.longitude,
-              accuracy_m: location.accuracy,
-              captured_at: location.capturedAt,
-            },
-          }
-        : { image: compressedImage };
+      const request: CreateScanRequest = {
+        image: compressedImage,
+        location: {
+          latitude: location.latitude,
+          longitude: location.longitude,
+          accuracy_m: location.accuracy,
+          captured_at: location.capturedAt,
+        },
+      };
       const form = new FormData();
       form.append('image', request.image);
-      if (request.location) {
-        form.append('latitude', String(request.location.latitude));
-        form.append('longitude', String(request.location.longitude));
-        form.append('location_accuracy_m', String(request.location.accuracy_m));
-        form.append('location_captured_at', request.location.captured_at);
-      }
+      form.append('latitude', String(request.location.latitude));
+      form.append('longitude', String(request.location.longitude));
+      form.append('location_accuracy_m', String(request.location.accuracy_m));
+      form.append('location_captured_at', request.location.captured_at);
 
       const response = await fetch('/api/scans', {
         method: 'POST',
         headers: { 'Idempotency-Key': idempotencyKey.current ?? crypto.randomUUID() },
+        credentials: 'same-origin',
         body: form,
       });
       const payload = (await response.json()) as CreateScanResponse;
-      if (!response.ok) throw new Error('error' in payload ? payload.error.code : 'SCAN_FAILED');
+      if (!response.ok) {
+        if ('error' in payload && payload.error.retry_with_new_key) idempotencyKey.current = crypto.randomUUID();
+        throw new Error('error' in payload ? payload.error.code : 'SCAN_FAILED');
+      }
       if ('error' in payload) throw new Error(payload.error.code);
-      if (payload.duplicate || payload.data.analysis_status === 'pending') throw new Error('SCAN_PENDING');
+      if (payload.data.analysis_status === 'pending') throw new Error('SCAN_PENDING');
+      if (payload.data.analysis_status === 'failed') throw new Error('SCAN_PREVIOUSLY_FAILED');
 
       const data = payload.data;
       const result: ScanOutcome = {
@@ -163,17 +192,40 @@ export function useWasteScan() {
       idempotencyKey.current = null;
       setStatus('done');
     } catch (error) {
-      setStatus('error');
       const code = error instanceof Error ? error.message : 'SCAN_FAILED';
+      setStatus('error');
+      if (code === 'SCAN_PREVIOUSLY_FAILED') idempotencyKey.current = crypto.randomUUID();
+      if (code === 'CAPTCHA_FAILED') {
+        setCaptchaToken(null);
+        setCaptchaResetNonce((nonce) => nonce + 1);
+      }
       setMessage(
-        code === 'AI_NOT_CONFIGURED'
+        code === 'MISSING_COORDINATES'
+          ? 'Akses lokasi ditolak atau tidak tersedia. Aktifkan izin GPS untuk melanjutkan pemindaian.'
+          : code === 'OUTSIDE_BALI_REGION'
+            ? 'Lokasi berada di luar Provinsi Bali. Pemindai hanya dapat digunakan di wilayah Bali.'
+            : code === 'AI_NOT_CONFIGURED'
           ? 'Layanan klasifikasi AI belum dikonfigurasi.'
           : code === 'SCAN_PENDING'
             ? 'Pemindaian ini masih diproses. Silakan coba lagi sebentar.'
+            : code === 'SCAN_PREVIOUSLY_FAILED'
+              ? 'Pemindaian sebelumnya gagal. Tekan klasifikasikan lagi untuk memulai scan baru.'
+              : code === 'RATE_LIMITED'
+                ? 'Batas pemindaian tercapai. Coba lagi setelah beberapa saat.'
+                : code === 'AI_BUDGET_EXCEEDED'
+                  ? 'Batas analisis harian tercapai. Silakan coba lagi besok.'
+                : code === 'RATE_LIMITER_UNAVAILABLE'
+                  ? 'Layanan keamanan sementara tidak tersedia. Tidak ada analisis AI yang dijalankan; coba lagi nanti.'
+                  : code === 'CAPTCHA_FAILED'
+                    ? 'Verifikasi gagal. Silakan selesaikan verifikasi lagi.'
+                    : code === 'SESSION_INVALID' || code === 'UNAUTHENTICATED'
+                      ? 'Sesi scan tidak valid atau kedaluwarsa. Muat ulang halaman dan coba lagi.'
             : 'Foto belum dapat dianalisis. Periksa koneksi lalu coba lagi.',
       );
+    } finally {
+      inFlight.current = false;
     }
-  }, [file]);
+  }, [file, captchaToken]);
 
   return {
     previewUrl,
@@ -182,6 +234,9 @@ export function useWasteScan() {
     outcome,
     message,
     showUncertainDialog,
+    needsCaptcha,
+    setCaptchaToken,
+    captchaResetNonce,
     dismissUncertainDialog: () => setShowUncertainDialog(false),
     selectFile,
     clearFile,

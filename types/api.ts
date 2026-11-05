@@ -3,7 +3,7 @@ import type { AnalysisStatus, ReviewStatus, WasteCategory } from './waste';
 /** Values used to construct the multipart POST /api/scans request. */
 export interface CreateScanRequest {
   image: File;
-  location?: {
+  location: {
     latitude: number;
     longitude: number;
     accuracy_m: number;
@@ -32,5 +32,6 @@ export interface CreateScanResult {
 /** Idempotent retries may return only the already stored scan's current status. */
 export type CreateScanResponse =
   | { data: CreateScanResult; duplicate?: false }
-  | { data: Pick<CreateScanResult, 'id' | 'analysis_status'>; duplicate: true }
-  | { error: { code: string } };
+  | { data: CreateScanResult; duplicate: true }
+  | { data: { id: string; analysis_status: 'pending' }; duplicate: true }
+  | { error: { code: string; retry_with_new_key?: boolean } };
