@@ -1,6 +1,11 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { createSupabaseServerClient } from '@/lib/supabase-server';
 import { hasAdminRole } from '@/lib/scan-validation';
+
+/**
+ * POST /api/auth/login
+ * Autentikasi akun admin menggunakan email & password Supabase Auth serta verifikasi app_metadata.role === 'ADMIN'.
+ */
 export async function POST(request: NextRequest) {
   let body: unknown;
   try { body = await request.json(); } catch { return NextResponse.json({ error: { code: 'INVALID_BODY' } }, { status: 400 }); }

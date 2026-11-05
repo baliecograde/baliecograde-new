@@ -4,6 +4,11 @@ import { createSupabaseAdminClient } from '@/lib/supabase-server';
 import { DEFAULT_CATEGORY_INSTRUCTIONS, safeScanDto } from '@/lib/waste-api';
 import { isValidUuid, parseReviewPatch } from '@/lib/scan-validation';
 
+/**
+ * PATCH /api/admin/scans/[id]
+ * Verifikasi dan koreksi klasifikasi scan oleh admin (mengubah category ke ORGANIK|ANORGANIK|RESIDU|B3
+ * atau null jika non-sampah/false detection DeepSeek, mengubah review_status, material, atau instruction).
+ */
 export async function PATCH(
   request: NextRequest,
   context: { params: Promise<{ id: string }> },
@@ -32,9 +37,19 @@ export async function PATCH(
   const updates: Record<string, unknown> = {
     review_status: patch.review_status,
   };
-  if (patch.category) {
+  if (patch.category !== undefined) {
     updates.trash_category = patch.category;
-    updates.action_instruction = DEFAULT_CATEGORY_INSTRUCTIONS[patch.category];
+    if (patch.category !== null && !patch.instruction) {
+      updates.action_instruction = DEFAULT_CATEGORY_INSTRUCTIONS[patch.category];
+    } else if (patch.category === null && !patch.instruction) {
+      updates.action_instruction = 'Objek ditandai sebagai bukan sampah / tidak terklasifikasi oleh admin.';
+    }
+  }
+  if (patch.material !== undefined) {
+    updates.material_detected = patch.material;
+  }
+  if (patch.instruction !== undefined) {
+    updates.action_instruction = patch.instruction;
   }
 
   try {
@@ -81,3 +96,45 @@ export async function PATCH(
   }
 }
 
+/**
+ * DELETE /api/admin/scans/[id]
+ * Menghapus satu record scan beserta file gambarnya di bucket waste-images.
+ */
+export async function DELETE(
+  _request: NextRequest,
+  context: { params: Promise<{ id: string }> },
+) {
+  await connection();
+  const guard = await requireAdmin();
+  if (!guard.ok) return guard.response;
+
+  const { id } = await context.params;
+  if (!isValidUuid(id)) {
+    return NextResponse.json({ error: { code: 'INVALID_SCAN_ID' } }, { status: 400 });
+  }
+
+  try {
+    const supabase = createSupabaseAdminClient();
+    const { data: existing, error: fetchError } = await supabase
+      .from('waste_scans')
+      .select('id,image_path')
+      .eq('id', id)
+      .maybeSingle();
+
+    if (fetchError) throw fetchError;
+    if (!existing) {
+      return NextResponse.json({ error: { code: 'NOT_FOUND' } }, { status: 404 });
+    }
+
+    if (typeof existing.image_path === 'string' && existing.image_path.length > 0) {
+      await supabase.storage.from('waste-images').remove([existing.image_path]);
+    }
+
+    const { error: deleteError } = await supabase.from('waste_scans').delete().eq('id', id);
+    if (deleteError) throw deleteError;
+
+    return NextResponse.json({ data: { deleted_id: id } });
+  } catch {
+    return NextResponse.json({ error: { code: 'DATABASE_ERROR' } }, { status: 503 });
+  }
+}

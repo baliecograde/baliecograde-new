@@ -3,6 +3,11 @@ import { requireAdmin } from '@/lib/admin-auth';
 import { createSupabaseAdminClient } from '@/lib/supabase-server';
 import { computeRegionStats, parseFilters, readAllFilteredRows } from '@/lib/waste-api';
 
+/**
+ * GET /api/admin/regions
+ * Agregasi jumlah pemindaian per kabupaten/kota beserta breakdown kecamatan di Bali.
+ * Default hanya menghitung sampah terdeteksi (exclude uncertain/non-sampah), mendukung ?include_uncertain=true.
+ */
 export async function GET(request: NextRequest) {
   await connection();
   const guard = await requireAdmin();
@@ -23,13 +28,14 @@ export async function GET(request: NextRequest) {
     const rows = await readAllFilteredRows(
       createSupabaseAdminClient(),
       filters,
-      'regency,district,analysis_status,review_status',
+      'regency,district,trash_category,analysis_status,review_status',
     );
-    const regions = computeRegionStats(rows);
+    const regions = computeRegionStats(rows, Boolean(filters.include_uncertain));
     return NextResponse.json({
       data: limit ? regions.slice(0, limit) : regions,
       meta: {
         timezone: 'Asia/Makassar',
+        include_uncertain: Boolean(filters.include_uncertain),
         filters_applied: filters,
       },
     });
@@ -37,4 +43,3 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: { code: 'DATABASE_ERROR' } }, { status: 503 });
   }
 }
-

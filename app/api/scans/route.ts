@@ -13,6 +13,11 @@ function fail(code: string, status: number, message?: string) {
   return NextResponse.json({ error: message ? { code, message } : { code } }, { status });
 }
 
+/**
+ * POST /api/scans
+ * Memvalidasi koordinat GPS wajib di wilayah Bali, menormalkan foto ke bucket privat waste-images,
+ * menganalisis material via DeepSeek Vision, dan menyimpan hasil (termasuk uncertain) ke tabel waste_scans.
+ */
 export async function POST(request: NextRequest) {
   const contentLength = Number(request.headers.get('content-length') ?? 0);
   if (contentLength > MAX_BYTES + 1024 * 1024) return fail('REQUEST_TOO_LARGE', 413);

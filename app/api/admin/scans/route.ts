@@ -1,15 +1,15 @@
 import { connection, NextRequest, NextResponse } from 'next/server';
 import { requireAdmin } from '@/lib/admin-auth';
 import { createSupabaseAdminClient } from '@/lib/supabase-server';
-import { buildFilteredQuery, parseFilters, safeScanDto } from '@/lib/waste-api';
+import { buildFilteredQuery, parseFilters, safeScanDto, type ParseFilterOptions } from '@/lib/waste-api';
 import { parsePagination } from '@/lib/scan-validation';
 
-export async function GET(request: NextRequest) {
+export async function handleAdminScansGet(request: NextRequest, filterOptions?: ParseFilterOptions) {
   await connection();
   const guard = await requireAdmin();
   if (!guard.ok) return guard.response;
   const params = request.nextUrl.searchParams;
-  const filters = parseFilters(params);
+  const filters = parseFilters(params, filterOptions);
   if (!filters) return NextResponse.json({ error: { code: 'INVALID_FILTER' } }, { status: 400 });
   const pagination = parsePagination(params.get('page'), params.get('page_size'));
   if (!pagination) return NextResponse.json({ error: { code: 'INVALID_PAGINATION' } }, { status: 400 });
@@ -59,10 +59,20 @@ export async function GET(request: NextRequest) {
         page,
         page_size: pageSize,
         total_pages: Math.ceil(total / pageSize),
+        include_uncertain: Boolean(filters.include_uncertain),
         timezone: 'Asia/Makassar',
       },
     });
   } catch {
     return NextResponse.json({ error: { code: 'DATABASE_ERROR' } }, { status: 503 });
   }
+}
+
+/**
+ * GET /api/admin/scans
+ * Mengambil daftar pemindaian yang terdeteksi sebagai sampah (default: exclude uncertain/non-sampah).
+ * Mendukung filter ?category=ORGANIK|ANORGANIK|RESIDU|B3, regency, district, search, start_date, end_date, page, page_size.
+ */
+export async function GET(request: NextRequest) {
+  return handleAdminScansGet(request);
 }

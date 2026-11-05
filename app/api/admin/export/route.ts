@@ -3,6 +3,11 @@ import { requireAdmin } from '@/lib/admin-auth';
 import { createSupabaseAdminClient } from '@/lib/supabase-server';
 import { csvEscape, parseFilters, readAllFilteredRows } from '@/lib/waste-api';
 
+/**
+ * GET /api/admin/export
+ * Mengunduh seluruh hasil pemindaian terfilter dalam format CSV UTF-8 (mitigasi formula injection).
+ * Default mengeksklusi uncertain/non-sampah, mendukung ?include_uncertain=true.
+ */
 export async function GET(request: NextRequest) {
   await connection();
   const guard = await requireAdmin();

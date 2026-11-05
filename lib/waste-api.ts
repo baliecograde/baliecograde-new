@@ -24,12 +24,15 @@ export interface ScanFilters {
   end: string | null;
   review_status?: DbReviewStatus | null;
   analysis_status?: DbAnalysisStatus | null;
+  include_uncertain?: boolean;
+  only_uncertain?: boolean;
 }
 
 export interface SummaryStats {
   total_scans: number;
   by_category: Record<WasteCategory, number>;
   unclassified: number;
+  uncertain_count: number;
   pending_reviews: number;
   by_regency: Record<string, number>;
 }
@@ -53,6 +56,9 @@ export interface RegionStat {
 type QueryResult = { data: unknown[] | null; error: unknown; count?: number | null };
 interface FilterQuery extends PromiseLike<QueryResult> {
   eq(column: string, value: string): FilterQuery;
+  not(column: string, operator: string, value: unknown): FilterQuery;
+  is(column: string, value: null): FilterQuery;
+  in(column: string, values: string[]): FilterQuery;
   gte(column: string, value: string): FilterQuery;
   lt(column: string, value: string): FilterQuery;
   or(filters: string): FilterQuery;
@@ -61,12 +67,19 @@ interface FilterQuery extends PromiseLike<QueryResult> {
 }
 interface LooseSupabase { from(table: string): { select(columns: string, options?: { count?: string }): FilterQuery } }
 
-export function parseFilters(params: URLSearchParams): ScanFilters | null {
+export interface ParseFilterOptions {
+  includeUncertain?: boolean;
+  onlyUncertain?: boolean;
+}
+
+export function parseFilters(params: URLSearchParams, options?: ParseFilterOptions): ScanFilters | null {
   const category = params.get('category');
   const startDate = params.get('start_date');
   const endDate = params.get('end_date');
   const reviewStatus = params.get('review_status');
   const analysisStatus = params.get('analysis_status');
+  const includeUncertainParam = params.get('include_uncertain');
+  const onlyUncertainParam = params.get('only_uncertain');
 
   const validDate = (value: string | null) => {
     if (!value) return true;
@@ -78,6 +91,8 @@ export function parseFilters(params: URLSearchParams): ScanFilters | null {
     (category && !WASTE_CATEGORIES.includes(category as WasteCategory)) ||
     (reviewStatus && !REVIEW_STATUSES.includes(reviewStatus as DbReviewStatus)) ||
     (analysisStatus && !ANALYSIS_STATUSES.includes(analysisStatus as DbAnalysisStatus)) ||
+    (includeUncertainParam && !['true', 'false', '1', '0'].includes(includeUncertainParam)) ||
+    (onlyUncertainParam && !['true', 'false', '1', '0'].includes(onlyUncertainParam)) ||
     !validDate(startDate) ||
     !validDate(endDate) ||
     (startDate && endDate && startDate >= endDate)
@@ -95,12 +110,23 @@ export function parseFilters(params: URLSearchParams): ScanFilters | null {
   };
   if (reviewStatus) result.review_status = reviewStatus as DbReviewStatus;
   if (analysisStatus) result.analysis_status = analysisStatus as DbAnalysisStatus;
+
+  const includeUncertain = options?.includeUncertain ?? (includeUncertainParam === 'true' || includeUncertainParam === '1');
+  const onlyUncertain = options?.onlyUncertain ?? (onlyUncertainParam === 'true' || onlyUncertainParam === '1');
+  if (includeUncertain) result.include_uncertain = true;
+  if (onlyUncertain) result.only_uncertain = true;
   return result;
 }
 
 export function applyScanFilters(query: FilterQuery, filters: ScanFilters): FilterQuery {
   let next = query;
-  if (filters.category) next = next.eq('trash_category', filters.category);
+  if (filters.only_uncertain) {
+    next = next.is('trash_category', null);
+  } else if (filters.category) {
+    next = next.eq('trash_category', filters.category);
+  } else if (!filters.include_uncertain) {
+    next = next.not('trash_category', 'is', null);
+  }
   if (filters.regency) next = next.eq('regency', filters.regency);
   if (filters.district) next = next.eq('district', filters.district);
   if (filters.review_status) next = next.eq('review_status', filters.review_status);
@@ -156,13 +182,15 @@ export function safeScanDto(row: Record<string, unknown>) {
   };
 }
 
-function isStatEligibleRow(row: Record<string, unknown>): boolean {
+function isStatEligibleRow(row: Record<string, unknown>, includeUncertain = false): boolean {
   const analysisStatus = row.analysis_status ?? 'completed';
   const reviewStatus = row.review_status ?? 'not_required';
-  return analysisStatus === 'completed' && reviewStatus !== 'rejected';
+  if (analysisStatus !== 'completed' || reviewStatus === 'rejected') return false;
+  if (includeUncertain) return true;
+  return typeof row.trash_category === 'string' && WASTE_CATEGORIES.includes(row.trash_category as WasteCategory);
 }
 
-export function computeSummaryStats(rows: Record<string, unknown>[]): SummaryStats {
+export function computeSummaryStats(rows: Record<string, unknown>[], includeUncertain = false): SummaryStats {
   const byCategory: Record<WasteCategory, number> = {
     ORGANIK: 0,
     ANORGANIK: 0,
@@ -171,26 +199,29 @@ export function computeSummaryStats(rows: Record<string, unknown>[]): SummarySta
   };
   const byRegency: Record<string, number> = {};
   let totalScans = 0;
-  let unclassified = 0;
+  let uncertainCount = 0;
   let pendingReviews = 0;
 
   for (const row of rows) {
     const analysisStatus = row.analysis_status ?? 'completed';
-    if (analysisStatus === 'completed' && row.review_status === 'pending') {
+    const reviewStatus = row.review_status ?? 'not_required';
+    if (analysisStatus === 'completed' && reviewStatus === 'pending') {
       pendingReviews += 1;
     }
-    if (!isStatEligibleRow(row)) continue;
+    if (analysisStatus !== 'completed' || reviewStatus === 'rejected') continue;
 
-    totalScans += 1;
     const category = typeof row.trash_category === 'string' && WASTE_CATEGORIES.includes(row.trash_category as WasteCategory)
       ? (row.trash_category as WasteCategory)
       : null;
-    if (category) {
-      byCategory[category] += 1;
+
+    if (!category) {
+      uncertainCount += 1;
+      if (!includeUncertain) continue;
     } else {
-      unclassified += 1;
+      byCategory[category] += 1;
     }
 
+    totalScans += 1;
     const regency = typeof row.regency === 'string' && row.regency.trim() ? row.regency.trim() : 'Tidak diketahui';
     byRegency[regency] = (byRegency[regency] ?? 0) + 1;
   }
@@ -198,7 +229,8 @@ export function computeSummaryStats(rows: Record<string, unknown>[]): SummarySta
   return {
     total_scans: totalScans,
     by_category: byCategory,
-    unclassified,
+    unclassified: uncertainCount,
+    uncertain_count: uncertainCount,
     pending_reviews: pendingReviews,
     by_regency: byRegency,
   };
@@ -214,12 +246,13 @@ export function computeActivitySeries(
   startIso: string | null,
   endIso: string | null,
   nowMs = Date.now(),
+  includeUncertain = false,
 ): ActivityPoint[] {
   const counts = new Map<string, number>();
   let earliestDate: string | null = null;
 
   for (const row of rows) {
-    if (!isStatEligibleRow(row)) continue;
+    if (!isStatEligibleRow(row, includeUncertain)) continue;
     if (typeof row.created_at !== 'string') continue;
     const timestamp = new Date(row.created_at).getTime();
     if (Number.isNaN(timestamp)) continue;
@@ -254,11 +287,11 @@ export function computeActivitySeries(
   return series;
 }
 
-export function computeRegionStats(rows: Record<string, unknown>[]): RegionStat[] {
+export function computeRegionStats(rows: Record<string, unknown>[], includeUncertain = false): RegionStat[] {
   const regencyMap = new Map<string | null, { total: number; districts: Map<string, number> }>();
 
   for (const row of rows) {
-    if (!isStatEligibleRow(row)) continue;
+    if (!isStatEligibleRow(row, includeUncertain)) continue;
     const regency = typeof row.regency === 'string' && row.regency.trim() ? row.regency.trim() : null;
     const district = typeof row.district === 'string' && row.district.trim() ? row.district.trim() : null;
 
