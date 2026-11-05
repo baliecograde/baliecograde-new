@@ -211,12 +211,6 @@ token_verifications = 30
 # Number of Web3 logins that can be made in a 5 minute interval per IP address.
 web3 = 30
 
-# Configure one of the supported captcha providers: `hcaptcha`, `turnstile`.
-[auth.captcha]
-enabled = true
-provider = "turnstile"
-secret = "env(SUPABASE_AUTH_CAPTCHA_SECRET)"
-
 [auth.email]
 # Allow/disallow the email provider. When false, users can't sign up or sign in with email.
 # To block new signups only, set enable_signup = false under [auth] instead.

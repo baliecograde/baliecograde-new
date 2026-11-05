@@ -3,14 +3,14 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 
 export class GuestSessionError extends Error {
-  constructor(readonly code: 'CAPTCHA_REQUIRED' | 'CAPTCHA_FAILED' | 'SESSION_INVALID') {
+  constructor(readonly code: 'SESSION_INVALID' | 'GUEST_SESSION_FAILED') {
     super(code);
     this.name = 'GuestSessionError';
   }
 }
 
 /** Ensures browser auth has a cookie-backed session; the server validates it again. */
-export async function ensureScanSession(supabase: SupabaseClient, captchaToken?: string) {
+export async function ensureScanSession(supabase: SupabaseClient) {
   const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
   if (sessionError) throw new GuestSessionError('SESSION_INVALID');
 
@@ -20,8 +20,7 @@ export async function ensureScanSession(supabase: SupabaseClient, captchaToken?:
     return data.user;
   }
 
-  if (!captchaToken) throw new GuestSessionError('CAPTCHA_REQUIRED');
-  const { data, error } = await supabase.auth.signInAnonymously({ options: { captchaToken } });
-  if (error || !data.user) throw new GuestSessionError('CAPTCHA_FAILED');
+  const { data, error } = await supabase.auth.signInAnonymously();
+  if (error || !data.user) throw new GuestSessionError('GUEST_SESSION_FAILED');
   return data.user;
 }

@@ -26,9 +26,6 @@ export function LandingPage() {
             message={scan.message}
             locationStatus={userArea.status}
             onRetryLocation={userArea.requestLocation}
-            needsCaptcha={scan.needsCaptcha}
-            onCaptchaToken={scan.setCaptchaToken}
-            captchaResetNonce={scan.captchaResetNonce}
             onFileSelect={scan.selectFile}
             onClear={scan.clearFile}
             onClassify={scan.classify}
