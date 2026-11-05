@@ -1,8 +1,12 @@
 import 'server-only';
 import type { WasteCategory } from '@/types/waste';
 export interface VisionResult {
-  material: string | null; category: WasteCategory | null; confidence: number | null;
-  instruction: string | null; localContext: string | null;
+  material: string | null;
+  category: WasteCategory | null;
+  confidence: number | null;
+  reason: string | null;
+  instruction: string | null;
+  localContext: string | null;
 }
 const categories = new Set<WasteCategory>(['ORGANIK', 'ANORGANIK', 'RESIDU', 'B3']);
 export async function classifyWithDeepSeek(bytes: Uint8Array, mimeType: string): Promise<VisionResult> {
@@ -15,7 +19,7 @@ export async function classifyWithDeepSeek(bytes: Uint8Array, mimeType: string):
     body: JSON.stringify({
       model, response_format: { type: 'json_object' },
       messages: [{ role: 'user', content: [
-        { type: 'text', text: 'Analyze the waste photo. Return JSON keys material, category, confidence, instruction, local_context. category must be ORGANIK, ANORGANIK, RESIDU, B3, or null if unclassifiable. confidence is 0..1 or null. Do not invent Balinese cultural claims; local_context must be null unless supported by provided context.' },
+        { type: 'text', text: 'Analisis foto. Kembalikan hanya JSON dengan keys material, category, confidence, reason, instruction, local_context. Jika objek bukan sampah atau sampah tidak terlihat jelas, category dan confidence harus null; reason jelaskan singkat kenapa (maksimal 25 kata). Jika sampah terdeteksi, category harus ORGANIK, ANORGANIK, RESIDU, atau B3, confidence angka 0..1, dan reason maksimal 25 kata menjelaskan material/kondisi utama. instruction maksimal 35 kata, ringkas namun mencakup langkah pemilahan dan peringatan keselamatan penting. material harus nama benda/material singkat. Jangan mengarang konteks budaya Bali; local_context null kecuali ada kaitan yang jelas.' },
         { type: 'image_url', image_url: { url: 'data:' + mimeType + ';base64,' + imageBase64 } },
       ] }],
     }),
@@ -32,7 +36,9 @@ export async function classifyWithDeepSeek(bytes: Uint8Array, mimeType: string):
   return {
     material: typeof parsed.material === 'string' ? parsed.material.slice(0, 300) : null,
     category: candidate && categories.has(candidate as WasteCategory) ? candidate as WasteCategory : null,
-    confidence, instruction: typeof parsed.instruction === 'string' ? parsed.instruction.slice(0, 1200) : null,
+    confidence,
+    reason: typeof parsed.reason === 'string' ? parsed.reason.slice(0, 1000) : null,
+    instruction: typeof parsed.instruction === 'string' ? parsed.instruction.slice(0, 1200) : null,
     localContext: typeof parsed.local_context === 'string' ? parsed.local_context.slice(0, 1200) : null,
   };
 }

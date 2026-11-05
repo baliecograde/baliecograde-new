@@ -2,6 +2,8 @@
 
 > **DRAFT — bukan kontrak final.** Endpoint berikut adalah kebutuhan/rute usulan untuk Next.js Route Handlers. Repository aktif kini merupakan aplikasi Next.js App Router; versi 16.4.5 baru tercatat dalam manifest/lockfile dan dependency belum terpasang. Backend, frontend, dan database owner harus menyetujui request, response, auth, status HTTP, filter, pagination, dan error sebelum implementasi. Contoh hanya memakai data sintetis; tidak ada endpoint yang diasumsikan tersedia.
 
+> **Pembaruan implementasi (2026-11-05):** alur scan aplikasi saat ini menggunakan `POST /api/scans`. Rute `/api/scans/analyze` di bawah adalah usulan historis dari snapshot audit 2026-11-04 dan bukan endpoint aktif; detail audit historis dipertahankan.
+
 ## 1. Status dan aturan pertukaran data
 
 ### Temuan kode aktual (audit statis, 2026-11-04)

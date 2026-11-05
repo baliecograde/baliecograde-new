@@ -136,8 +136,21 @@ export function UploadCard({
         </p>
       )}
 
-      <input ref={cameraInputRef} type="file" accept="image/*" capture="environment" className="hidden" onChange={handleInputChange} />
-      <input ref={galleryInputRef} type="file" accept="image/*" className="hidden" onChange={handleInputChange} />
+      <input
+        ref={cameraInputRef}
+        type="file"
+        accept="image/jpeg,image/png,image/webp"
+        capture="environment"
+        className="hidden"
+        onChange={handleInputChange}
+      />
+      <input
+        ref={galleryInputRef}
+        type="file"
+        accept="image/jpeg,image/png,image/webp"
+        className="hidden"
+        onChange={handleInputChange}
+      />
     </section>
   );
 }
