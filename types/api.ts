@@ -1,40 +1,36 @@
-export type CanonicalCategory = 'ORGANIK' | 'ANORGANIK' | 'RESIDU' | 'B3';
+import type { AnalysisStatus, ReviewStatus, WasteCategory } from './waste';
 
-export type AnalysisStatus = 'completed' | 'uncertain' | 'failed';
-
-export interface DeepSeekAnalysisResult {
-  material_detected: string;
-  trash_category: CanonicalCategory;
-  confidence_score: number;
-  classification_reason: string;
-  action_instruction: string;
-  balinese_context_note: string | null;
-  analysis_status: AnalysisStatus;
+/** Values used to construct the multipart POST /api/scans request. */
+export interface CreateScanRequest {
+  image: File;
+  location?: {
+    latitude: number;
+    longitude: number;
+    accuracy_m: number;
+    captured_at: string;
+  };
 }
 
-export interface AnalyzeScanRecord {
+/** Complete result returned after POST /api/scans has persisted the scan. */
+export interface CreateScanResult {
   id: string;
-  analysis_status: AnalysisStatus;
   material: string | null;
-  category: CanonicalCategory | null;
+  category: WasteCategory | null;
   confidence: number | null;
+  /** Explanation for the current response; it is not persisted in waste_scans. */
   reason: string | null;
-  instruction: string | null;
-  local_context: string | null;
+  instruction: string;
+  /** Cultural context is deliberately withheld until it is verified. */
+  local_context: null;
+  analysis_status: AnalysisStatus;
+  review_status: ReviewStatus;
   regency: string | null;
   district: string | null;
-  scanned_at: string;
   image_url: string | null;
 }
 
-export interface AnalyzeScanSuccessResponse {
-  data: AnalyzeScanRecord;
-}
-
-export interface ApiErrorResponse {
-  error: {
-    code: string;
-    message: string;
-    details?: unknown;
-  };
-}
+/** Idempotent retries may return only the already stored scan's current status. */
+export type CreateScanResponse =
+  | { data: CreateScanResult; duplicate?: false }
+  | { data: Pick<CreateScanResult, 'id' | 'analysis_status'>; duplicate: true }
+  | { error: { code: string } };

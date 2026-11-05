@@ -1,22 +1,17 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import type { ScanArea, WasteCategory } from '@/types/waste';
+import type { CreateScanRequest, CreateScanResponse, CreateScanResult } from '@/types/api';
+import type { ReviewStatus, ScanArea } from '@/types/waste';
 
 export type ScanStatus = 'idle' | 'scanning' | 'done' | 'error';
 
-export interface ScanOutcome {
-  id: string;
-  category: WasteCategory | null;
-  confidence: number | null;
+export type ScanOutcome = Omit<CreateScanResult, 'local_context' | 'regency' | 'district' | 'image_url' | 'review_status' | 'analysis_status'> & {
   area: ScanArea;
-  reviewStatus: 'not_required' | 'pending';
+  reviewStatus: ReviewStatus;
   saved: boolean;
   imageUrl: string | null;
-  material: string | null;
-  reason: string | null;
-  instruction: string | null;
   localContext: string | null;
-  analysisStatus: 'completed' | 'pending' | 'failed';
-}
+  analysisStatus: CreateScanResult['analysis_status'];
+};
 
 const ACCEPTED_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp']);
 
@@ -25,25 +20,6 @@ interface LocationSnapshot {
   longitude: number;
   accuracy: number;
   capturedAt: string;
-}
-
-interface ScanApiResponse {
-  data?: {
-    id: string;
-    material: string | null;
-    category: WasteCategory | null;
-    confidence: number | null;
-    reason: string | null;
-    instruction: string | null;
-    local_context: string | null;
-    analysis_status: 'completed' | 'pending' | 'failed';
-    review_status: 'not_required' | 'pending';
-    regency: string | null;
-    district: string | null;
-    image_url: string | null;
-  };
-  duplicate?: boolean;
-  error?: { code?: string };
 }
 
 async function compressForUpload(file: File): Promise<File> {
@@ -136,13 +112,25 @@ export function useWasteScan() {
 
     try {
       const location = await captureLocation();
+      const compressedImage = await compressForUpload(file);
+      const request: CreateScanRequest = location
+        ? {
+            image: compressedImage,
+            location: {
+              latitude: location.latitude,
+              longitude: location.longitude,
+              accuracy_m: location.accuracy,
+              captured_at: location.capturedAt,
+            },
+          }
+        : { image: compressedImage };
       const form = new FormData();
-      form.append('image', await compressForUpload(file));
-      if (location) {
-        form.append('latitude', String(location.latitude));
-        form.append('longitude', String(location.longitude));
-        form.append('location_accuracy_m', String(location.accuracy));
-        form.append('location_captured_at', location.capturedAt);
+      form.append('image', request.image);
+      if (request.location) {
+        form.append('latitude', String(request.location.latitude));
+        form.append('longitude', String(request.location.longitude));
+        form.append('location_accuracy_m', String(request.location.accuracy_m));
+        form.append('location_captured_at', request.location.captured_at);
       }
 
       const response = await fetch('/api/scans', {
@@ -150,10 +138,10 @@ export function useWasteScan() {
         headers: { 'Idempotency-Key': idempotencyKey.current ?? crypto.randomUUID() },
         body: form,
       });
-      const payload = (await response.json()) as ScanApiResponse;
-      if (!response.ok) throw new Error(payload.error?.code ?? 'SCAN_FAILED');
-      if (payload.duplicate || payload.data?.analysis_status === 'pending') throw new Error('SCAN_PENDING');
-      if (!payload.data) throw new Error('INVALID_SCAN_RESPONSE');
+      const payload = (await response.json()) as CreateScanResponse;
+      if (!response.ok) throw new Error('error' in payload ? payload.error.code : 'SCAN_FAILED');
+      if ('error' in payload) throw new Error(payload.error.code);
+      if (payload.duplicate || payload.data.analysis_status === 'pending') throw new Error('SCAN_PENDING');
 
       const data = payload.data;
       const result: ScanOutcome = {
