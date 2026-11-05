@@ -1,6 +1,17 @@
-import type { CanonicalCategory, DeepSeekAnalysisResult } from '@/types/api';
+import type { WasteCategory } from '@/types/waste';
 
-const CANONICAL_CATEGORIES: CanonicalCategory[] = ['ORGANIK', 'ANORGANIK', 'RESIDU', 'B3'];
+type DeepSeekAnalysisResult = {
+  material_detected: string;
+  trash_category: WasteCategory;
+  confidence_score: number;
+  classification_reason: string;
+  action_instruction: string;
+  balinese_context_note: string | null;
+  /** Classifier confidence outcome; this is not the persisted processing status. */
+  analysis_status: 'completed' | 'uncertain';
+};
+
+const CANONICAL_CATEGORIES: WasteCategory[] = ['ORGANIK', 'ANORGANIK', 'RESIDU', 'B3'];
 
 const SYSTEM_PROMPT = `Anda adalah sistem pakar klasifikasi sampah cerdas BaliEcoGrade berbasis konteks kearifan lokal Bali.
 Tugas Anda menganalisis gambar sampah dan memberikan klasifikasi presisi dalam format JSON valid.
@@ -127,7 +138,7 @@ export async function analyzeWasteWithDeepSeek(
     throw new DeepSeekError('Failed to parse DeepSeek response as JSON', 502, rawContent);
   }
 
-  const rawCategory = String(parsed.trash_category || '').toUpperCase() as CanonicalCategory;
+  const rawCategory = String(parsed.trash_category || '').toUpperCase() as WasteCategory;
   const category = CANONICAL_CATEGORIES.includes(rawCategory) ? rawCategory : 'RESIDU';
 
   let confidence = Number(parsed.confidence_score);

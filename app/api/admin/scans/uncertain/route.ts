@@ -158,4 +158,3 @@ export async function DELETE(request: NextRequest) {
     return NextResponse.json({ error: { code: 'DATABASE_ERROR' } }, { status: 503 });
   }
 }
-

@@ -1,4 +1,6 @@
 export type WasteCategory = 'ORGANIK' | 'ANORGANIK' | 'RESIDU' | 'B3';
+export type AnalysisStatus = 'pending' | 'completed' | 'failed';
+export type ReviewStatus = 'not_required' | 'pending' | 'approved' | 'rejected';
 
 export interface ScanArea {
   regency: string | null;
@@ -12,8 +14,8 @@ export interface WasteScan {
   confidence: number | null;
   instruction?: string | null;
   local_context?: string | null;
-  analysis_status: 'pending' | 'completed' | 'failed';
-  review_status: 'not_required' | 'pending' | 'approved' | 'rejected';
+  analysis_status: AnalysisStatus;
+  review_status: ReviewStatus;
   regency: string | null;
   district: string | null;
   image_url: string | null;

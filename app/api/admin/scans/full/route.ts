@@ -9,4 +9,3 @@ import { handleAdminScansGet } from '@/app/api/admin/scans/route';
 export async function GET(request: NextRequest) {
   return handleAdminScansGet(request, { includeUncertain: true });
 }
-

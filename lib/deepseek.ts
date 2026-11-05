@@ -18,6 +18,7 @@ export async function classifyWithDeepSeek(bytes: Uint8Array, mimeType: string):
     method: 'POST', headers: { Authorization: 'Bearer ' + apiKey, 'Content-Type': 'application/json' },
     body: JSON.stringify({
       model, response_format: { type: 'json_object' },
+      max_tokens: 512,
       messages: [{ role: 'user', content: [
         { type: 'text', text: 'Analisis foto. Kembalikan hanya JSON dengan keys material, category, confidence, reason, instruction, local_context. Jika objek bukan sampah atau sampah tidak terlihat jelas, category dan confidence harus null; reason jelaskan singkat kenapa (maksimal 25 kata). Jika sampah terdeteksi, category harus ORGANIK, ANORGANIK, RESIDU, atau B3, confidence angka 0..1, dan reason maksimal 25 kata menjelaskan material/kondisi utama. instruction maksimal 35 kata, ringkas namun mencakup langkah pemilahan dan peringatan keselamatan penting. material harus nama benda/material singkat. Jangan mengarang konteks budaya Bali; local_context null kecuali ada kaitan yang jelas.' },
         { type: 'image_url', image_url: { url: 'data:' + mimeType + ';base64,' + imageBase64 } },

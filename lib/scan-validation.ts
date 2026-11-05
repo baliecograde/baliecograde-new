@@ -56,8 +56,9 @@ export function parsePagination(pageValue: string | null, pageSizeValue: string 
 }
 
 export function hasAdminRole(appMetadata: unknown) {
-  return typeof appMetadata === 'object' && appMetadata !== null &&
-    'role' in appMetadata && appMetadata.role === 'ADMIN';
+  if (typeof appMetadata !== 'object' || appMetadata === null || !('role' in appMetadata)) return false;
+  const role = appMetadata.role;
+  return typeof role === 'string' && role.toLowerCase() === 'admin';
 }
 
 export function parseReviewPatch(body: unknown): ReviewPatchPayload | null {

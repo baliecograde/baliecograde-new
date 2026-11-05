@@ -3,6 +3,7 @@ import { requireAdmin } from '@/lib/admin-auth';
 import { createSupabaseAdminClient } from '@/lib/supabase-server';
 import { buildFilteredQuery, parseFilters, safeScanDto, type ParseFilterOptions } from '@/lib/waste-api';
 import { parsePagination } from '@/lib/scan-validation';
+import { mayIssueScanImageUrl } from '@/lib/scan-access';
 
 export async function handleAdminScansGet(request: NextRequest, filterOptions?: ParseFilterOptions) {
   await connection();
@@ -18,7 +19,7 @@ export async function handleAdminScansGet(request: NextRequest, filterOptions?: 
     const supabase = createSupabaseAdminClient();
     const query = buildFilteredQuery(
       supabase,
-      'id,material_detected,trash_category,confidence_score,action_instruction,balinese_context_note,analysis_status,review_status,regency,district,created_at,image_path',
+      'id,user_id,material_detected,trash_category,confidence_score,action_instruction,balinese_context_note,analysis_status,review_status,regency,district,created_at,image_path',
       filters,
       true,
     )
@@ -31,7 +32,7 @@ export async function handleAdminScansGet(request: NextRequest, filterOptions?: 
       ((data ?? []) as unknown as Record<string, unknown>[]).map(async (row) => {
         const dto = safeScanDto(row);
         let image_url: string | null = null;
-        if (typeof row.image_path === 'string') {
+        if (typeof row.image_path === 'string' && mayIssueScanImageUrl({ user_id: typeof row.user_id === 'string' ? row.user_id : null }, guard.userId, true)) {
           const { data: signed } = await supabase.storage.from('waste-images').createSignedUrl(row.image_path, 300);
           image_url = signed?.signedUrl ?? null;
         }
@@ -62,6 +63,8 @@ export async function handleAdminScansGet(request: NextRequest, filterOptions?: 
         include_uncertain: Boolean(filters.include_uncertain),
         timezone: 'Asia/Makassar',
       },
+    }, {
+      headers: { 'Cache-Control': 'private, no-store' },
     });
   } catch {
     return NextResponse.json({ error: { code: 'DATABASE_ERROR' } }, { status: 503 });

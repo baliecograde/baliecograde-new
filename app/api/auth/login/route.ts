@@ -1,12 +1,13 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { createSupabaseServerClient } from '@/lib/supabase-server';
 import { hasAdminRole } from '@/lib/scan-validation';
-
 /**
  * POST /api/auth/login
  * Autentikasi akun admin menggunakan email & password Supabase Auth serta verifikasi app_metadata.role === 'ADMIN'.
  */
+import { isSameOriginRequest } from '@/lib/request-origin';
 export async function POST(request: NextRequest) {
+  if (!isSameOriginRequest(request)) return NextResponse.json({ error: { code: 'ORIGIN_NOT_ALLOWED' } }, { status: 403 });
   let body: unknown;
   try { body = await request.json(); } catch { return NextResponse.json({ error: { code: 'INVALID_BODY' } }, { status: 400 }); }
   if (!body || typeof body !== 'object' || !('email' in body) || !('password' in body) ||

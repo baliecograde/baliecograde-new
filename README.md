@@ -14,3 +14,7 @@ BaliEcoGrade is a Next.js App Router application for waste classification and ed
 - `npm run typecheck`
 - `npm test`
 - `npm run build`
+
+## Scan API
+
+The application submits scans through `POST /api/scans`. The request uses `multipart/form-data` with an `image` field and an `Idempotency-Key` UUID header; GPS fields are optional. The server validates and stores the scan and image, then returns the persisted analysis result. The endpoint `/api/scans/analyze` is not part of the active application flow.

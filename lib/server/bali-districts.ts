@@ -99,4 +99,3 @@ export function findNearestBaliDistrict(lat: number, lng: number): { regency: st
 
   return { regency: nearest.regency, district: nearest.district };
 }
-
