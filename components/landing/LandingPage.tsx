@@ -24,6 +24,8 @@ export function LandingPage() {
             hasFile={scan.hasFile}
             isScanning={scan.status === 'scanning'}
             message={scan.message}
+            locationStatus={userArea.status}
+            onRetryLocation={userArea.requestLocation}
             onFileSelect={scan.selectFile}
             onClear={scan.clearFile}
             onClassify={scan.classify}

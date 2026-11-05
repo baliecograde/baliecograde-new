@@ -43,7 +43,7 @@ interface ScanApiResponse {
     image_url: string | null;
   };
   duplicate?: boolean;
-  error?: { code?: string };
+  error?: { code?: string; message?: string };
 }
 
 async function compressForUpload(file: File): Promise<File> {
@@ -136,14 +136,15 @@ export function useWasteScan() {
 
     try {
       const location = await captureLocation();
+      if (!location) {
+        throw new Error('MISSING_COORDINATES');
+      }
       const form = new FormData();
       form.append('image', await compressForUpload(file));
-      if (location) {
-        form.append('latitude', String(location.latitude));
-        form.append('longitude', String(location.longitude));
-        form.append('location_accuracy_m', String(location.accuracy));
-        form.append('location_captured_at', location.capturedAt);
-      }
+      form.append('latitude', String(location.latitude));
+      form.append('longitude', String(location.longitude));
+      form.append('location_accuracy_m', String(location.accuracy));
+      form.append('location_captured_at', location.capturedAt);
 
       const response = await fetch('/api/scans', {
         method: 'POST',
@@ -178,11 +179,15 @@ export function useWasteScan() {
       setStatus('error');
       const code = error instanceof Error ? error.message : 'SCAN_FAILED';
       setMessage(
-        code === 'AI_NOT_CONFIGURED'
-          ? 'Layanan klasifikasi AI belum dikonfigurasi.'
-          : code === 'SCAN_PENDING'
-            ? 'Pemindaian ini masih diproses. Silakan coba lagi sebentar.'
-            : 'Foto belum dapat dianalisis. Periksa koneksi lalu coba lagi.',
+        code === 'MISSING_COORDINATES'
+          ? 'Akses lokasi ditolak atau tidak tersedia. Aktifkan izin GPS untuk melanjutkan pemindaian.'
+          : code === 'OUTSIDE_BALI_REGION'
+            ? 'Lokasi berada di luar Provinsi Bali. Pemindai hanya dapat digunakan di wilayah Bali.'
+            : code === 'AI_NOT_CONFIGURED'
+              ? 'Layanan klasifikasi AI belum dikonfigurasi.'
+              : code === 'SCAN_PENDING'
+                ? 'Pemindaian ini masih diproses. Silakan coba lagi sebentar.'
+                : 'Foto belum dapat dianalisis. Periksa koneksi lalu coba lagi.',
       );
     }
   }, [file]);
