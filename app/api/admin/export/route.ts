@@ -10,8 +10,24 @@ export async function GET(request: NextRequest) {
   const filters = parseFilters(request.nextUrl.searchParams);
   if (!filters) return NextResponse.json({ error: { code: 'INVALID_FILTER' } }, { status: 400 });
   try {
-    const rows = await readAllFilteredRows(createSupabaseAdminClient(), filters, 'id,material_detected,trash_category,confidence_score,analysis_status,review_status,regency,district,created_at');
-    const columns = ['id', 'material_detected', 'trash_category', 'confidence_score', 'analysis_status', 'review_status', 'regency', 'district', 'created_at'];
+    const rows = await readAllFilteredRows(
+      createSupabaseAdminClient(),
+      filters,
+      'id,material_detected,trash_category,confidence_score,action_instruction,balinese_context_note,analysis_status,review_status,regency,district,created_at',
+    );
+    const columns = [
+      'id',
+      'material_detected',
+      'trash_category',
+      'confidence_score',
+      'action_instruction',
+      'balinese_context_note',
+      'analysis_status',
+      'review_status',
+      'regency',
+      'district',
+      'created_at',
+    ];
     const lines = [columns.map(csvEscape).join(',')];
     for (const row of rows) lines.push(columns.map((key) => csvEscape(row[key])).join(','));
     return new NextResponse('\uFEFF' + lines.join('\r\n'), {

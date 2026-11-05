@@ -16,21 +16,52 @@ export async function GET(request: NextRequest) {
   const { page, pageSize } = pagination;
   try {
     const supabase = createSupabaseAdminClient();
-    const query = buildFilteredQuery(supabase, 'id,material_detected,trash_category,confidence_score,action_instruction,balinese_context_note,analysis_status,review_status,regency,district,created_at,image_path', filters, true)
-      .order('created_at', { ascending: false }).order('id', { ascending: false }).range((page - 1) * pageSize, page * pageSize - 1);
+    const query = buildFilteredQuery(
+      supabase,
+      'id,material_detected,trash_category,confidence_score,action_instruction,balinese_context_note,analysis_status,review_status,regency,district,created_at,image_path',
+      filters,
+      true,
+    )
+      .order('created_at', { ascending: false })
+      .order('id', { ascending: false })
+      .range((page - 1) * pageSize, page * pageSize - 1);
     const { data, count, error } = await query;
     if (error) throw error;
-    const rows = await Promise.all(((data ?? []) as unknown as Record<string, unknown>[]).map(async (row) => {
-      const dto = safeScanDto(row);
-      let image_url: string | null = null;
-      if (typeof row.image_path === 'string') {
-        const { data: signed } = await supabase.storage.from('waste-images').createSignedUrl(row.image_path, 300);
-        image_url = signed?.signedUrl ?? null;
-      }
-      return { id: dto.id, material: dto.material, category: dto.category, confidence: dto.confidence, instruction: dto.instruction, local_context: dto.local_context, analysis_status: dto.analysis_status, review_status: dto.review_status, regency: dto.regency, district: dto.district, scanned_at: dto.scanned_at, image_url };
-    }));
+    const rows = await Promise.all(
+      ((data ?? []) as unknown as Record<string, unknown>[]).map(async (row) => {
+        const dto = safeScanDto(row);
+        let image_url: string | null = null;
+        if (typeof row.image_path === 'string') {
+          const { data: signed } = await supabase.storage.from('waste-images').createSignedUrl(row.image_path, 300);
+          image_url = signed?.signedUrl ?? null;
+        }
+        return {
+          id: dto.id,
+          material: dto.material,
+          category: dto.category,
+          confidence: dto.confidence,
+          instruction: dto.instruction,
+          local_context: dto.local_context,
+          analysis_status: dto.analysis_status,
+          review_status: dto.review_status,
+          regency: dto.regency,
+          district: dto.district,
+          scanned_at: dto.scanned_at,
+          image_url,
+        };
+      }),
+    );
     const total = count ?? 0;
-    return NextResponse.json({ data: rows, meta: { total, page, page_size: pageSize, total_pages: Math.ceil(total / pageSize), timezone: 'Asia/Makassar' } });
+    return NextResponse.json({
+      data: rows,
+      meta: {
+        total,
+        page,
+        page_size: pageSize,
+        total_pages: Math.ceil(total / pageSize),
+        timezone: 'Asia/Makassar',
+      },
+    });
   } catch {
     return NextResponse.json({ error: { code: 'DATABASE_ERROR' } }, { status: 503 });
   }
