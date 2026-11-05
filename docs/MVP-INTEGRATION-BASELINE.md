@@ -28,13 +28,13 @@ Migration `20261104000100_create_waste_scans_and_private_storage.sql` has been a
 
 DeepSeek Vision is called server-side using `DEEPSEEK_API_KEY` and `DEEPSEEK_MODEL` (the current documented vision model default is `deepseek-flash`). Missing credentials cause the scan API to return `AI_NOT_CONFIGURED`; there is no random classifier fallback and no simulated result is persisted. Confidence is not calibrated. AI-supplied local cultural context is discarded until independently supported. User-facing instructions are server-controlled category guidance.
 
-`SCAN_API_ENABLED` defaults to false and has not been enabled in Production. The local implementation uses Upstash Redis REST for atomic distributed request limits (trusted platform IP, authenticated user/guest) and a per-user plus global daily AI budget. All Redis errors, malformed responses, HTTP errors, and timeouts fail closed with 503 before DeepSeek is called. Defaults are in `.env.example`; operators should tune them against actual cost and abuse patterns before enabling the API. DeepSeek calls are additionally bounded by configured model and output-token limit.
+`SCAN_API_ENABLED` defaults to false and must be enabled in the Production runtime before scans are accepted. The team decision for this MVP is to run without application-level request rate limits, AI quotas, or Redis. Every accepted scan can trigger a DeepSeek request, so API usage and cost scale with incoming scans. DeepSeek calls remain server-side and bounded by the configured model and output-token limit.
 
 Anonymous Auth and Turnstile are enabled only in the local Supabase CLI config. This does not change Production Auth settings. The application requires `NEXT_PUBLIC_TURNSTILE_SITE_KEY` and the corresponding Supabase Auth CAPTCHA secret to create a guest account; if verification or configuration fails, account creation and scanning stop. Configure Production Auth CAPTCHA in the Supabase Dashboard only after a separate deployment review.
 
 Scan idempotency remains globally unique in the database, while the server checks ownership before returning any existing result. Same-owner completed retries return the stored result without another AI call; fresh pending retries return only pending status; failed retries require a new key; stale pending rows older than three minutes are atomically marked failed and are not reprocessed. A process crash after upload can leave an unreferenced private object; the current MVP intentionally does not automatically delete images or guest accounts.
 
-Redis is an additional required service before enabling production scans. Database and Storage data operations remain server-only using the administrative client. The browser uses only the publishable key for Auth; it does not access tables or Storage. Signed image URLs are issued only after owner/admin authorization and all scan responses are `private, no-store`. No Storage policies are added because browser access is not part of this architecture.
+Redis is not required by the scan API. Database and Storage data operations remain server-only using the administrative client. The browser uses only the publishable key for Auth; it does not access tables or Storage. Signed image URLs are issued only after owner/admin authorization and all scan responses are `private, no-store`. No Storage policies are added because browser access is not part of this architecture.
 
 ## First admin provisioning
 
@@ -49,7 +49,7 @@ The app intentionally provides no public endpoint to assign or change roles.
 
 - Authenticate Supabase CLI and repeat effective schema/table privilege, role-membership, migration-history, and bucket/policy inspection immediately before deployment.
 - Review migration dry-run and Production backup/recovery evidence; obtain explicit deployment approval.
-- Configure Supabase, Turnstile, Redis, and DeepSeek values in local/Vercel environment, and run Auth, Storage, RLS, and API tests using synthetic data.
+- Configure Supabase, Turnstile, and DeepSeek values in local/Vercel environment, and run Auth, Storage, RLS, and API tests using synthetic data. Review DeepSeek usage and spending regularly because application-level scan and AI quotas are intentionally not enabled.
 - Configure Production Anonymous Auth CAPTCHA separately; no Production setting was changed.
 - Choose/configure an actual reverse-geocoding provider.
 - Agree on image/GPS retention duration and operational review workflow. No automated deletion exists.
