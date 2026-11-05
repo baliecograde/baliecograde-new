@@ -40,7 +40,7 @@ export function LandingPage() {
         </div>
       </main>
       <footer className="mx-auto flex max-w-6xl justify-end px-4 pb-8">
-        <Link href="/admin-login" className="text-xs text-slate-500">Admin</Link>
+       
       </footer>
     </div>
   );
