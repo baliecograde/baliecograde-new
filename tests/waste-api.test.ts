@@ -57,7 +57,11 @@ test('validates pagination and trusts app_metadata role only', () => {
   assert.deepEqual(parsePagination(null, null), { page: 1, pageSize: 20 });
   assert.equal(parsePagination('0', '20'), null);
   assert.equal(parsePagination('1', '101'), null);
+  assert.equal(hasAdminRole({ role: 'admin' }), true);
   assert.equal(hasAdminRole({ role: 'ADMIN' }), true);
+  assert.equal(hasAdminRole({ role: 'AdMiN' }), true);
   assert.equal(hasAdminRole({ role: 'USER' }), false);
+  assert.equal(hasAdminRole({ role: ' admin ' }), false);
+  assert.equal(hasAdminRole({ user_metadata: { role: 'admin' } }), false);
   assert.equal(hasAdminRole({}), false);
 });
