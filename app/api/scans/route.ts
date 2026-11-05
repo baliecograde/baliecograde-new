@@ -6,9 +6,19 @@ import { parseGpsFields, sniffImageMime } from '@/lib/scan-validation';
 import { getValidatedScanIdentity } from '@/lib/server/scan-identity';
 import { createScanPostHandler, type ScanRow, type ScanStore } from '@/lib/server/scan-post-handler';
 import { consumeScanRequestLimit, getTrustedScanClientIp, reserveAiInvocation } from '@/lib/server/scan-rate-limit';
+import { mayBypassScanRateLimits } from '@/lib/scan-rate-limit-policy';
 import sharp from 'sharp';
 
 export const maxDuration = 60;
+
+// Local-only convenience: production and any Redis-configured environment stay rate-limited.
+const localRateLimitBypass = mayBypassScanRateLimits(
+  process.env.NODE_ENV,
+  process.env.UPSTASH_REDIS_REST_URL,
+  process.env.UPSTASH_REDIS_REST_TOKEN,
+  process.env.NEXT_PUBLIC_SUPABASE_URL,
+);
+const allowLocalScan = async () => ({ allowed: true, retryAfterSeconds: 0 });
 
 function createStore(): ScanStore {
   const admin = createSupabaseAdminClient();
@@ -50,8 +60,8 @@ const post = createScanPostHandler({
   getIdentity: getValidatedScanIdentity,
   getStore: createStore,
   getClientIp: getTrustedScanClientIp,
-  consumeRequestLimit: consumeScanRequestLimit,
-  reserveAiInvocation,
+  consumeRequestLimit: localRateLimitBypass ? allowLocalScan : consumeScanRequestLimit,
+  reserveAiInvocation: localRateLimitBypass ? allowLocalScan : reserveAiInvocation,
   sniffImageMime,
   parseGps: parseGpsFields,
   async normalizeImage(bytes) {
