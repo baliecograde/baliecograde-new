@@ -56,6 +56,7 @@ export interface RegionStat {
 type QueryResult = { data: unknown[] | null; error: unknown; count?: number | null };
 interface FilterQuery extends PromiseLike<QueryResult> {
   eq(column: string, value: string): FilterQuery;
+  ilike(column: string, pattern: string): FilterQuery;
   not(column: string, operator: string, value: unknown): FilterQuery;
   is(column: string, value: null): FilterQuery;
   in(column: string, values: string[]): FilterQuery;
@@ -102,9 +103,9 @@ export function parseFilters(params: URLSearchParams, options?: ParseFilterOptio
   const toUtc = (value: string | null) => value ? new Date(value + 'T00:00:00+08:00').toISOString() : null;
   const result: ScanFilters = {
     category: category as WasteCategory | null,
-    regency: params.get('regency')?.trim().slice(0, 100) || null,
-    district: params.get('district')?.trim().slice(0, 100) || null,
-    search: params.get('search')?.trim().slice(0, 120) || null,
+    regency: params.get('regency')?.trim().toLowerCase().slice(0, 100) || null,
+    district: params.get('district')?.trim().toLowerCase().slice(0, 100) || null,
+    search: params.get('search')?.trim().toLowerCase().slice(0, 120) || null,
     start: toUtc(startDate),
     end: toUtc(endDate),
   };
@@ -127,8 +128,8 @@ export function applyScanFilters(query: FilterQuery, filters: ScanFilters): Filt
   } else if (!filters.include_uncertain) {
     next = next.not('trash_category', 'is', null);
   }
-  if (filters.regency) next = next.eq('regency', filters.regency);
-  if (filters.district) next = next.eq('district', filters.district);
+  if (filters.regency) next = next.ilike('regency', filters.regency);
+  if (filters.district) next = next.ilike('district', filters.district);
   if (filters.review_status) next = next.eq('review_status', filters.review_status);
   if (filters.analysis_status) next = next.eq('analysis_status', filters.analysis_status);
   if (filters.start) next = next.gte('created_at', filters.start);

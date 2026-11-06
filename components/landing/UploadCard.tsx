@@ -68,10 +68,10 @@ export function UploadCard({
   return (
     <section
       aria-labelledby="upload-heading"
-      className="flex flex-col rounded-2xl bg-white p-5 shadow-soft ring-1 ring-slate-200/70 sm:p-6 dark:bg-slate-900 dark:ring-slate-800"
+      className="flex min-w-0 flex-col rounded-2xl bg-white p-4 shadow-soft ring-1 ring-slate-200/70 sm:p-6 dark:bg-slate-900 dark:ring-slate-800"
     >
-      <header className="mb-5 flex items-start justify-between gap-4">
-        <div>
+      <header className="mb-5 flex flex-wrap items-start justify-between gap-3">
+        <div className="min-w-0 flex-1">
           <h2 id="upload-heading" className="text-xl font-bold text-slate-900 dark:text-white">
             Pindai Sampahmu
           </h2>
@@ -116,7 +116,7 @@ export function UploadCard({
         onDragOver={handleDragOver}
         onDragLeave={() => setIsDragging(false)}
         onDrop={handleDrop}
-        className={`relative aspect-[4/3] overflow-hidden rounded-2xl border-2 border-dashed transition-colors duration-300 ${
+        className={`relative aspect-[4/3] min-w-0 overflow-hidden rounded-2xl border-2 border-dashed transition-colors duration-300 ${
           isLocationHeld
             ? 'border-slate-200 bg-slate-100/80 opacity-60 dark:border-slate-800 dark:bg-slate-900/60'
             : isDragging
@@ -172,10 +172,25 @@ export function UploadCard({
         type="button"
         onClick={onClassify}
         disabled={!hasFile || isScanning || isLocationHeld}
+        aria-label={isScanning ? 'Scanning sampah' : undefined}
         className="mt-3 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-700 px-5 py-3.5 font-semibold text-white shadow-lg shadow-emerald-700/20 transition hover:-translate-y-0.5 hover:bg-emerald-800 active:translate-y-0 disabled:cursor-not-allowed disabled:bg-slate-300 disabled:text-slate-600 disabled:shadow-none disabled:hover:translate-y-0 dark:disabled:bg-slate-700 dark:disabled:text-slate-400"
       >
-        <ScanLine className="h-5 w-5" aria-hidden="true" />
-        Klasifikasikan Sampah Sekarang
+        {isScanning ? (
+          <>
+            <ScanLine className="h-5 w-5 animate-pulse motion-reduce:animate-none" aria-hidden="true" />
+            <span>Scanning</span>
+            <span className="inline-flex w-5 justify-start" aria-hidden="true">
+              <span className="animate-bounce motion-reduce:animate-none">.</span>
+              <span className="animate-bounce [animation-delay:150ms] motion-reduce:animate-none">.</span>
+              <span className="animate-bounce [animation-delay:300ms] motion-reduce:animate-none">.</span>
+            </span>
+          </>
+        ) : (
+          <>
+            <ScanLine className="h-5 w-5" aria-hidden="true" />
+            Klasifikasikan Sampah Sekarang
+          </>
+        )}
       </button>
 
       {message && (

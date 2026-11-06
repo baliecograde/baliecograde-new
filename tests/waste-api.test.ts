@@ -30,6 +30,12 @@ test('validates categories, statuses, uncertain flags, and Makassar date boundar
   assert.equal(filters?.include_uncertain, true);
   assert.equal(filters?.start, '2026-10-31T16:00:00.000Z');
   assert.equal(filters?.end, '2026-11-30T16:00:00.000Z');
+  const caseInsensitiveFilters = parseFilters(
+    new URLSearchParams('regency=  DeNpAsAr  &district=DENPASAR+TIMUR&search=GELAS+PLASTIK'),
+  );
+  assert.equal(caseInsensitiveFilters?.regency, 'denpasar');
+  assert.equal(caseInsensitiveFilters?.district, 'denpasar timur');
+  assert.equal(caseInsensitiveFilters?.search, 'gelas plastik');
 
   const forcedUncertain = parseFilters(new URLSearchParams(), { onlyUncertain: true });
   assert.equal(forcedUncertain?.only_uncertain, true);
