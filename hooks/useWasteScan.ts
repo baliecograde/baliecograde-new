@@ -1,22 +1,19 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import type { ScanArea, WasteCategory } from '@/types/waste';
+import { createSupabaseBrowserClient } from '@/lib/supabase-browser';
+import { ensureScanSession } from '@/lib/guest-session';
+import type { CreateScanRequest, CreateScanResponse, CreateScanResult } from '@/types/api';
+import type { ReviewStatus, ScanArea } from '@/types/waste';
 
 export type ScanStatus = 'idle' | 'scanning' | 'done' | 'error';
 
-export interface ScanOutcome {
-  id: string;
-  category: WasteCategory | null;
-  confidence: number | null;
+export type ScanOutcome = Omit<CreateScanResult, 'local_context' | 'regency' | 'district' | 'image_url' | 'review_status' | 'analysis_status'> & {
   area: ScanArea;
-  reviewStatus: 'not_required' | 'pending';
+  reviewStatus: ReviewStatus;
   saved: boolean;
   imageUrl: string | null;
-  material: string | null;
-  reason: string | null;
-  instruction: string | null;
   localContext: string | null;
-  analysisStatus: 'completed' | 'pending' | 'failed';
-}
+  analysisStatus: CreateScanResult['analysis_status'];
+};
 
 const ACCEPTED_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp']);
 
@@ -25,25 +22,6 @@ interface LocationSnapshot {
   longitude: number;
   accuracy: number;
   capturedAt: string;
-}
-
-interface ScanApiResponse {
-  data?: {
-    id: string;
-    material: string | null;
-    category: WasteCategory | null;
-    confidence: number | null;
-    reason: string | null;
-    instruction: string | null;
-    local_context: string | null;
-    analysis_status: 'completed' | 'pending' | 'failed';
-    review_status: 'not_required' | 'pending';
-    regency: string | null;
-    district: string | null;
-    image_url: string | null;
-  };
-  duplicate?: boolean;
-  error?: { code?: string };
 }
 
 async function compressForUpload(file: File): Promise<File> {
@@ -100,6 +78,7 @@ export function useWasteScan() {
   const [message, setMessage] = useState<string | null>(null);
   const [showUncertainDialog, setShowUncertainDialog] = useState(false);
   const idempotencyKey = useRef<string | null>(null);
+  const inFlight = useRef(false);
 
   useEffect(() => () => {
     if (previewUrl) URL.revokeObjectURL(previewUrl);
@@ -130,30 +109,48 @@ export function useWasteScan() {
   }, []);
 
   const classify = useCallback(async () => {
-    if (!file) return;
+    if (!file || inFlight.current) return;
+    inFlight.current = true;
     setStatus('scanning');
     setMessage(null);
 
     try {
+      const authClient = createSupabaseBrowserClient();
+      await ensureScanSession(authClient);
+
       const location = await captureLocation();
+      if (!location) throw new Error('MISSING_COORDINATES');
+      const compressedImage = await compressForUpload(file);
+      const request: CreateScanRequest = {
+        image: compressedImage,
+        location: {
+          latitude: location.latitude,
+          longitude: location.longitude,
+          accuracy_m: location.accuracy,
+          captured_at: location.capturedAt,
+        },
+      };
       const form = new FormData();
-      form.append('image', await compressForUpload(file));
-      if (location) {
-        form.append('latitude', String(location.latitude));
-        form.append('longitude', String(location.longitude));
-        form.append('location_accuracy_m', String(location.accuracy));
-        form.append('location_captured_at', location.capturedAt);
-      }
+      form.append('image', request.image);
+      form.append('latitude', String(request.location.latitude));
+      form.append('longitude', String(request.location.longitude));
+      form.append('location_accuracy_m', String(request.location.accuracy_m));
+      form.append('location_captured_at', request.location.captured_at);
 
       const response = await fetch('/api/scans', {
         method: 'POST',
         headers: { 'Idempotency-Key': idempotencyKey.current ?? crypto.randomUUID() },
+        credentials: 'same-origin',
         body: form,
       });
-      const payload = (await response.json()) as ScanApiResponse;
-      if (!response.ok) throw new Error(payload.error?.code ?? 'SCAN_FAILED');
-      if (payload.duplicate || payload.data?.analysis_status === 'pending') throw new Error('SCAN_PENDING');
-      if (!payload.data) throw new Error('INVALID_SCAN_RESPONSE');
+      const payload = (await response.json()) as CreateScanResponse;
+      if (!response.ok) {
+        if ('error' in payload && payload.error.retry_with_new_key) idempotencyKey.current = crypto.randomUUID();
+        throw new Error('error' in payload ? payload.error.code : 'SCAN_FAILED');
+      }
+      if ('error' in payload) throw new Error(payload.error.code);
+      if (payload.data.analysis_status === 'pending') throw new Error('SCAN_PENDING');
+      if (payload.data.analysis_status === 'failed') throw new Error('SCAN_PREVIOUSLY_FAILED');
 
       const data = payload.data;
       const result: ScanOutcome = {
@@ -175,15 +172,28 @@ export function useWasteScan() {
       idempotencyKey.current = null;
       setStatus('done');
     } catch (error) {
-      setStatus('error');
       const code = error instanceof Error ? error.message : 'SCAN_FAILED';
+      setStatus('error');
+      if (code === 'SCAN_PREVIOUSLY_FAILED') idempotencyKey.current = crypto.randomUUID();
       setMessage(
-        code === 'AI_NOT_CONFIGURED'
+        code === 'MISSING_COORDINATES'
+          ? 'Akses lokasi ditolak atau tidak tersedia. Aktifkan izin GPS untuk melanjutkan pemindaian.'
+          : code === 'OUTSIDE_BALI_REGION'
+            ? 'Lokasi berada di luar Provinsi Bali. Pemindai hanya dapat digunakan di wilayah Bali.'
+            : code === 'AI_NOT_CONFIGURED'
           ? 'Layanan klasifikasi AI belum dikonfigurasi.'
           : code === 'SCAN_PENDING'
             ? 'Pemindaian ini masih diproses. Silakan coba lagi sebentar.'
+            : code === 'SCAN_PREVIOUSLY_FAILED'
+              ? 'Pemindaian sebelumnya gagal. Tekan klasifikasikan lagi untuk memulai scan baru.'
+              : code === 'GUEST_SESSION_FAILED'
+                ? 'Sesi tamu ditolak Supabase Auth. Periksa Anonymous Auth dan pengaturan proyek.'
+                : code === 'SESSION_INVALID' || code === 'UNAUTHENTICATED'
+                      ? 'Sesi scan tidak valid atau kedaluwarsa. Muat ulang halaman dan coba lagi.'
             : 'Foto belum dapat dianalisis. Periksa koneksi lalu coba lagi.',
       );
+    } finally {
+      inFlight.current = false;
     }
   }, [file]);
 

@@ -1,5 +1,4 @@
 'use client';
-import Link from 'next/link';
 import { HeroSection } from '@/components/landing/HeroSection';
 import { ResultCard } from '@/components/landing/ResultCard';
 import { UploadCard } from '@/components/landing/UploadCard';
@@ -24,6 +23,8 @@ export function LandingPage() {
             hasFile={scan.hasFile}
             isScanning={scan.status === 'scanning'}
             message={scan.message}
+            locationStatus={userArea.status}
+            onRetryLocation={userArea.requestLocation}
             onFileSelect={scan.selectFile}
             onClear={scan.clearFile}
             onClassify={scan.classify}
@@ -38,7 +39,7 @@ export function LandingPage() {
         </div>
       </main>
       <footer className="mx-auto flex max-w-6xl justify-end px-4 pb-8">
-        <Link href="/admin-login" className="text-xs text-slate-500">Admin</Link>
+       
       </footer>
     </div>
   );

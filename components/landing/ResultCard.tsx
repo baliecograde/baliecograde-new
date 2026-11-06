@@ -138,6 +138,8 @@ function ResultDetails({ outcome }: { outcome: ScanOutcome }) {
   const categoryValue = outcome.category;
   const category = categoryValue ? WASTE_CATEGORIES[categoryValue] : null;
   const location = [outcome.area.district, outcome.area.regency].filter(Boolean).join(', ');
+  const confidencePercent =
+    outcome.confidence === null ? null : Math.max(0, Math.min(1, outcome.confidence)) * 100;
 
   return (
     <div className="animate-fade-up mt-5 flex flex-col gap-6">
@@ -151,7 +153,7 @@ function ResultDetails({ outcome }: { outcome: ScanOutcome }) {
         </h3>
       </div>
 
-      <div className="flex flex-wrap items-center justify-between gap-4">
+      <div className="flex flex-col items-start gap-3">
         {categoryValue !== null ? (
           <WasteBadge category={categoryValue} size="lg" />
         ) : (
@@ -159,10 +161,30 @@ function ResultDetails({ outcome }: { outcome: ScanOutcome }) {
             Belum dapat diklasifikasikan
           </span>
         )}
-        {outcome.confidence !== null && (
-          <span className="text-sm font-semibold text-slate-700 dark:text-slate-200">
-            Keyakinan {(outcome.confidence * 100).toFixed(1)}%
-          </span>
+        {confidencePercent !== null && (
+          <div className="w-full">
+            <div className="mb-2 flex items-center justify-between gap-3 text-sm">
+              <span className="font-medium text-slate-600 dark:text-slate-300">
+                Keyakinan klasifikasi
+              </span>
+              <span className="font-semibold text-slate-700 dark:text-slate-200">
+                {confidencePercent.toFixed(1)}%
+              </span>
+            </div>
+            <div
+              role="progressbar"
+              aria-label="Keyakinan klasifikasi"
+              aria-valuemin={0}
+              aria-valuemax={100}
+              aria-valuenow={confidencePercent}
+              className="h-2.5 w-full overflow-hidden rounded-full bg-slate-200 dark:bg-slate-700"
+            >
+              <div
+                className="h-full rounded-full bg-emerald-600 transition-[width] duration-500 ease-out dark:bg-emerald-400"
+                style={{ width: `${confidencePercent}%` }}
+              />
+            </div>
+          </div>
         )}
       </div>
 

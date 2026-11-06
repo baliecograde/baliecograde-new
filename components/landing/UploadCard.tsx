@@ -1,13 +1,16 @@
 import { useRef, useState, type ChangeEvent, type DragEvent } from 'react';
 import Image from 'next/image';
-import { Camera, ImagePlus, RotateCcw, ScanLine, UploadCloud } from 'lucide-react';
+import { Camera, ImagePlus, MapPinOff, RotateCcw, ScanLine, UploadCloud } from 'lucide-react';
 import { ScanningOverlay } from '@/components/landing/ScanningOverlay';
+import type { AreaStatus } from '@/hooks/useUserArea';
 
 interface UploadCardProps {
   previewUrl: string | null;
   hasFile: boolean;
   isScanning: boolean;
   message: string | null;
+  locationStatus?: AreaStatus;
+  onRetryLocation?: () => void;
   onFileSelect: (file: File) => void;
   onClear: () => void;
   onClassify: () => void;
@@ -18,6 +21,8 @@ export function UploadCard({
   hasFile,
   isScanning,
   message,
+  locationStatus = 'precise',
+  onRetryLocation,
   onFileSelect,
   onClear,
   onClassify,
@@ -26,7 +31,22 @@ export function UploadCard({
   const galleryInputRef = useRef<HTMLInputElement>(null);
   const [isDragging, setIsDragging] = useState(false);
 
+  const isLocationHeld =
+    locationStatus === 'denied' ||
+    locationStatus === 'unavailable' ||
+    locationStatus === 'outside-bali';
+
+  const holdMessage =
+    locationStatus === 'denied'
+      ? 'Akses lokasi ditolak. Pemindai ditahan sampai izin GPS diaktifkan pada browser Anda.'
+      : locationStatus === 'outside-bali'
+        ? 'Lokasi Anda berada di luar Provinsi Bali. Pemindai hanya aktif di wilayah Bali.'
+        : locationStatus === 'unavailable'
+          ? 'Lokasi GPS belum dapat diakses. Aktifkan layanan lokasi perangkat untuk membuka pemindai.'
+          : null;
+
   const handleInputChange = (event: ChangeEvent<HTMLInputElement>) => {
+    if (isLocationHeld) return;
     const file = event.target.files?.[0];
     if (file) onFileSelect(file);
     event.target.value = '';
@@ -34,13 +54,13 @@ export function UploadCard({
 
   const handleDragOver = (event: DragEvent<HTMLDivElement>) => {
     event.preventDefault();
-    if (!isScanning) setIsDragging(true);
+    if (!isScanning && !isLocationHeld) setIsDragging(true);
   };
 
   const handleDrop = (event: DragEvent<HTMLDivElement>) => {
     event.preventDefault();
     setIsDragging(false);
-    if (isScanning) return;
+    if (isScanning || isLocationHeld) return;
     const file = event.dataTransfer.files[0];
     if (file) onFileSelect(file);
   };
@@ -71,14 +91,37 @@ export function UploadCard({
         )}
       </header>
 
+      {isLocationHeld && holdMessage && (
+        <div
+          role="alert"
+          className="mb-4 flex flex-col gap-3 rounded-xl border border-amber-300 bg-amber-50 p-4 text-sm text-amber-900 dark:border-amber-800 dark:bg-amber-950/50 dark:text-amber-200"
+        >
+          <div className="flex items-start gap-2.5">
+            <MapPinOff className="mt-0.5 h-5 w-5 shrink-0 text-amber-700 dark:text-amber-400" aria-hidden="true" />
+            <p className="font-medium leading-relaxed">{holdMessage}</p>
+          </div>
+          {onRetryLocation && (
+            <button
+              type="button"
+              onClick={onRetryLocation}
+              className="self-start rounded-lg bg-amber-700 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-amber-800"
+            >
+              Periksa Ulang Lokasi
+            </button>
+          )}
+        </div>
+      )}
+
       <div
         onDragOver={handleDragOver}
         onDragLeave={() => setIsDragging(false)}
         onDrop={handleDrop}
         className={`relative aspect-[4/3] overflow-hidden rounded-2xl border-2 border-dashed transition-colors duration-300 ${
-          isDragging
-            ? 'border-emerald-500 bg-emerald-50 dark:bg-emerald-950/40'
-            : 'border-slate-300 bg-slate-50 dark:border-slate-700 dark:bg-slate-800/60'
+          isLocationHeld
+            ? 'border-slate-200 bg-slate-100/80 opacity-60 dark:border-slate-800 dark:bg-slate-900/60'
+            : isDragging
+              ? 'border-emerald-500 bg-emerald-50 dark:bg-emerald-950/40'
+              : 'border-slate-300 bg-slate-50 dark:border-slate-700 dark:bg-slate-800/60'
         }`}
       >
         {previewUrl ? (
@@ -86,14 +129,19 @@ export function UploadCard({
         ) : (
           <button
             type="button"
+            disabled={isLocationHeld}
             onClick={() => galleryInputRef.current?.click()}
-            className="group flex h-full w-full flex-col items-center justify-center gap-3 p-6 text-center"
+            className="group flex h-full w-full flex-col items-center justify-center gap-3 p-6 text-center disabled:cursor-not-allowed"
           >
             <span className="flex h-14 w-14 items-center justify-center rounded-2xl bg-emerald-100 text-emerald-700 transition group-hover:scale-105 dark:bg-emerald-900/60 dark:text-emerald-300">
               <UploadCloud className="h-7 w-7" aria-hidden="true" />
             </span>
-            <span className="font-semibold text-slate-800 dark:text-slate-100">Seret & lepas foto di sini</span>
-            <span className="text-sm text-slate-600 dark:text-slate-400">atau klik untuk memilih dari galeri (JPG, PNG, WEBP)</span>
+            <span className="font-semibold text-slate-800 dark:text-slate-100">
+              {isLocationHeld ? 'Pemindai ditahan — aktifkan izin lokasi' : 'Seret & lepas foto di sini'}
+            </span>
+            <span className="text-sm text-slate-600 dark:text-slate-400">
+              {isLocationHeld ? 'Wajib berada di wilayah Bali dengan GPS aktif' : 'atau klik untuk memilih dari galeri (JPG, PNG, WEBP)'}
+            </span>
           </button>
         )}
         {isScanning && <ScanningOverlay />}
@@ -103,7 +151,7 @@ export function UploadCard({
         <button
           type="button"
           onClick={() => cameraInputRef.current?.click()}
-          disabled={isScanning}
+          disabled={isScanning || isLocationHeld}
           className="inline-flex items-center justify-center gap-2 rounded-xl border border-emerald-600 px-4 py-3 font-semibold text-emerald-700 transition hover:bg-emerald-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-emerald-400 dark:text-emerald-300 dark:hover:bg-emerald-950/40"
         >
           <Camera className="h-5 w-5" aria-hidden="true" />
@@ -112,7 +160,7 @@ export function UploadCard({
         <button
           type="button"
           onClick={() => galleryInputRef.current?.click()}
-          disabled={isScanning}
+          disabled={isScanning || isLocationHeld}
           className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-300 px-4 py-3 font-semibold text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800"
         >
           <ImagePlus className="h-5 w-5" aria-hidden="true" />
@@ -123,7 +171,7 @@ export function UploadCard({
       <button
         type="button"
         onClick={onClassify}
-        disabled={!hasFile || isScanning}
+        disabled={!hasFile || isScanning || isLocationHeld}
         className="mt-3 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-700 px-5 py-3.5 font-semibold text-white shadow-lg shadow-emerald-700/20 transition hover:-translate-y-0.5 hover:bg-emerald-800 active:translate-y-0 disabled:cursor-not-allowed disabled:bg-slate-300 disabled:text-slate-600 disabled:shadow-none disabled:hover:translate-y-0 dark:disabled:bg-slate-700 dark:disabled:text-slate-400"
       >
         <ScanLine className="h-5 w-5" aria-hidden="true" />

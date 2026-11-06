@@ -6,6 +6,11 @@ export async function proxy(request: NextRequest) {
   if (!url || !key) return NextResponse.next({ request });
   let response = NextResponse.next({ request });
   const supabase = createServerClient(url, key, {
+    cookieOptions: {
+      path: '/',
+      sameSite: 'lax',
+      secure: process.env.NODE_ENV === 'production',
+    },
     cookies: {
       getAll: () => request.cookies.getAll(),
       setAll(items) {
@@ -18,4 +23,4 @@ export async function proxy(request: NextRequest) {
   await supabase.auth.getUser();
   return response;
 }
-export const config = { matcher: ['/admin-dashboard/:path*', '/api/admin/:path*'] };
+export const config = { matcher: ['/admin-dashboard/:path*', '/api/admin/:path*', '/api/scans/:path*'] };
