@@ -138,14 +138,6 @@ function ResultDetails({ outcome }: { outcome: ScanOutcome }) {
   const categoryValue = outcome.category;
   const category = categoryValue ? WASTE_CATEGORIES[categoryValue] : null;
   const location = [outcome.area.district, outcome.area.regency].filter(Boolean).join(', ');
-  const confidencePercent =
-    outcome.confidence === null ? null : Math.max(0, Math.min(100, outcome.confidence * 100));
-  const confidenceBarClass =
-    confidencePercent === null || confidencePercent < 60
-      ? 'bg-amber-400'
-      : confidencePercent < 80
-        ? 'bg-sky-400'
-        : 'bg-emerald-400';
 
   return (
     <div className="animate-fade-up mt-5 flex flex-col gap-6">
@@ -167,28 +159,10 @@ function ResultDetails({ outcome }: { outcome: ScanOutcome }) {
             Belum dapat diklasifikasikan
           </span>
         )}
-        {confidencePercent !== null && (
-          <div className="w-full min-w-0">
-            <div className="mb-2 flex items-center justify-between gap-3 text-sm">
-              <span className="font-medium text-slate-600 dark:text-slate-300">Tingkat keyakinan</span>
-              <span className="shrink-0 font-semibold text-slate-700 dark:text-slate-200">
-                {confidencePercent.toFixed(1)}%
-              </span>
-            </div>
-            <div
-              role="progressbar"
-              aria-label="Tingkat keyakinan klasifikasi"
-              aria-valuemin={0}
-              aria-valuemax={100}
-              aria-valuenow={Number(confidencePercent.toFixed(1))}
-              className="h-2.5 w-full overflow-hidden rounded-full bg-slate-200 dark:bg-slate-700"
-            >
-              <div
-                className={`h-full rounded-full transition-[width] duration-500 ease-out ${confidenceBarClass}`}
-                style={{ width: `${confidencePercent}%` }}
-              />
-            </div>
-          </div>
+        {outcome.confidence !== null && (
+          <span className="text-sm font-semibold text-slate-700 dark:text-slate-200">
+            Keyakinan {(outcome.confidence * 100).toFixed(1)}%
+          </span>
         )}
       </div>
 

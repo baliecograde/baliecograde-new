@@ -38,6 +38,9 @@ export function LandingPage() {
           />
         </div>
       </main>
+      <footer className="mx-auto flex max-w-6xl justify-end px-4 pb-8">
+       
+      </footer>
     </div>
   );
 }
