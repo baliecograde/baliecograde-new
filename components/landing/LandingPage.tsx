@@ -1,5 +1,4 @@
 'use client';
-import Link from 'next/link';
 import { HeroSection } from '@/components/landing/HeroSection';
 import { ResultCard } from '@/components/landing/ResultCard';
 import { UploadCard } from '@/components/landing/UploadCard';
@@ -26,9 +25,6 @@ export function LandingPage() {
             message={scan.message}
             locationStatus={userArea.status}
             onRetryLocation={userArea.requestLocation}
-            needsCaptcha={scan.needsCaptcha}
-            onCaptchaToken={scan.setCaptchaToken}
-            captchaResetNonce={scan.captchaResetNonce}
             onFileSelect={scan.selectFile}
             onClear={scan.clearFile}
             onClassify={scan.classify}

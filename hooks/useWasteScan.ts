@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { createSupabaseBrowserClient } from '@/lib/supabase-browser';
-import { ensureScanSession, GuestSessionError } from '@/lib/guest-session';
+import { ensureScanSession } from '@/lib/guest-session';
 import type { CreateScanRequest, CreateScanResponse, CreateScanResult } from '@/types/api';
 import type { ReviewStatus, ScanArea } from '@/types/waste';
 
@@ -77,9 +77,6 @@ export function useWasteScan() {
   const [outcome, setOutcome] = useState<ScanOutcome | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [showUncertainDialog, setShowUncertainDialog] = useState(false);
-  const [needsCaptcha, setNeedsCaptcha] = useState(false);
-  const [captchaToken, setCaptchaToken] = useState<string | null>(null);
-  const [captchaResetNonce, setCaptchaResetNonce] = useState(0);
   const idempotencyKey = useRef<string | null>(null);
   const inFlight = useRef(false);
 
@@ -97,9 +94,6 @@ export function useWasteScan() {
     idempotencyKey.current = crypto.randomUUID();
     setOutcome(null);
     setShowUncertainDialog(false);
-    setNeedsCaptcha(false);
-    setCaptchaToken(null);
-    setCaptchaResetNonce(0);
     setStatus('idle');
     setMessage(null);
   }, []);
@@ -110,9 +104,6 @@ export function useWasteScan() {
     idempotencyKey.current = null;
     setOutcome(null);
     setShowUncertainDialog(false);
-    setNeedsCaptcha(false);
-    setCaptchaToken(null);
-    setCaptchaResetNonce(0);
     setStatus('idle');
     setMessage(null);
   }, []);
@@ -125,18 +116,7 @@ export function useWasteScan() {
 
     try {
       const authClient = createSupabaseBrowserClient();
-      try {
-        await ensureScanSession(authClient, captchaToken ?? undefined);
-      } catch (error) {
-        if (error instanceof GuestSessionError && error.code === 'CAPTCHA_REQUIRED') {
-          setNeedsCaptcha(true);
-          setStatus('idle');
-          return;
-        }
-        throw error;
-      }
-      setNeedsCaptcha(false);
-      setCaptchaToken(null);
+      await ensureScanSession(authClient);
 
       const location = await captureLocation();
       if (!location) throw new Error('MISSING_COORDINATES');
@@ -195,10 +175,6 @@ export function useWasteScan() {
       const code = error instanceof Error ? error.message : 'SCAN_FAILED';
       setStatus('error');
       if (code === 'SCAN_PREVIOUSLY_FAILED') idempotencyKey.current = crypto.randomUUID();
-      if (code === 'CAPTCHA_FAILED') {
-        setCaptchaToken(null);
-        setCaptchaResetNonce((nonce) => nonce + 1);
-      }
       setMessage(
         code === 'MISSING_COORDINATES'
           ? 'Akses lokasi ditolak atau tidak tersedia. Aktifkan izin GPS untuk melanjutkan pemindaian.'
@@ -210,22 +186,16 @@ export function useWasteScan() {
             ? 'Pemindaian ini masih diproses. Silakan coba lagi sebentar.'
             : code === 'SCAN_PREVIOUSLY_FAILED'
               ? 'Pemindaian sebelumnya gagal. Tekan klasifikasikan lagi untuk memulai scan baru.'
-              : code === 'RATE_LIMITED'
-                ? 'Batas pemindaian tercapai. Coba lagi setelah beberapa saat.'
-                : code === 'AI_BUDGET_EXCEEDED'
-                  ? 'Batas analisis harian tercapai. Silakan coba lagi besok.'
-                : code === 'RATE_LIMITER_UNAVAILABLE'
-                  ? 'Layanan keamanan sementara tidak tersedia. Tidak ada analisis AI yang dijalankan; coba lagi nanti.'
-                  : code === 'CAPTCHA_FAILED'
-                    ? 'Verifikasi gagal. Silakan selesaikan verifikasi lagi.'
-                    : code === 'SESSION_INVALID' || code === 'UNAUTHENTICATED'
+              : code === 'GUEST_SESSION_FAILED'
+                ? 'Sesi tamu ditolak Supabase Auth. Periksa Anonymous Auth dan pengaturan proyek.'
+                : code === 'SESSION_INVALID' || code === 'UNAUTHENTICATED'
                       ? 'Sesi scan tidak valid atau kedaluwarsa. Muat ulang halaman dan coba lagi.'
             : 'Foto belum dapat dianalisis. Periksa koneksi lalu coba lagi.',
       );
     } finally {
       inFlight.current = false;
     }
-  }, [file, captchaToken]);
+  }, [file]);
 
   return {
     previewUrl,
@@ -234,9 +204,6 @@ export function useWasteScan() {
     outcome,
     message,
     showUncertainDialog,
-    needsCaptcha,
-    setCaptchaToken,
-    captchaResetNonce,
     dismissUncertainDialog: () => setShowUncertainDialog(false),
     selectFile,
     clearFile,

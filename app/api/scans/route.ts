@@ -5,7 +5,6 @@ import { getConfidenceThreshold } from '@/lib/waste-api';
 import { parseGpsFields, sniffImageMime } from '@/lib/scan-validation';
 import { getValidatedScanIdentity } from '@/lib/server/scan-identity';
 import { createScanPostHandler, type ScanRow, type ScanStore } from '@/lib/server/scan-post-handler';
-import { consumeScanRequestLimit, getTrustedScanClientIp, reserveAiInvocation } from '@/lib/server/scan-rate-limit';
 import sharp from 'sharp';
 
 export const maxDuration = 60;
@@ -49,9 +48,6 @@ function createStore(): ScanStore {
 const post = createScanPostHandler({
   getIdentity: getValidatedScanIdentity,
   getStore: createStore,
-  getClientIp: getTrustedScanClientIp,
-  consumeRequestLimit: consumeScanRequestLimit,
-  reserveAiInvocation,
   sniffImageMime,
   parseGps: parseGpsFields,
   async normalizeImage(bytes) {

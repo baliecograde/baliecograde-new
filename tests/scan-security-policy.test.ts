@@ -33,41 +33,30 @@ test('idempotency decisions disclose nothing to another identity and do not re-r
   assert.equal(decideExistingScan(row('owner-a', 'pending', new Date(now - 181_000).toISOString()), 'owner-a', now, 180_000), 'stale_pending');
 });
 
-test('guest account creation requires CAPTCHA and rejects failed Auth responses', async () => {
-  let signInCalls = 0;
-  const noSession = {
-    auth: {
-      getSession: async () => ({ data: { session: null }, error: null }),
-      signInAnonymously: async ({ options }: { options: { captchaToken: string } }) => {
-        signInCalls += 1;
-        assert.equal(options.captchaToken, 'turnstile-token');
-        return { data: { user: null }, error: new Error('captcha rejected') };
-      },
-    },
-  } as never;
-
-  await assert.rejects(() => ensureScanSession(noSession), (error: unknown) =>
-    error instanceof GuestSessionError && error.code === 'CAPTCHA_REQUIRED');
-  assert.equal(signInCalls, 0);
-  await assert.rejects(() => ensureScanSession(noSession, 'turnstile-token'), (error: unknown) =>
-    error instanceof GuestSessionError && error.code === 'CAPTCHA_FAILED');
-  assert.equal(signInCalls, 1);
-});
-
-test('anonymous session is returned only after CAPTCHA-backed Auth succeeds', async () => {
+test('guest session is created without CAPTCHA and Auth errors are reported safely', async () => {
   const guest = { id: 'guest-1', is_anonymous: true };
-  let receivedCaptcha: string | undefined;
-  const client = {
+  let signInCalls = 0;
+  const successClient = {
     auth: {
       getSession: async () => ({ data: { session: null }, error: null }),
-      signInAnonymously: async ({ options }: { options: { captchaToken: string } }) => {
-        receivedCaptcha = options.captchaToken;
+      signInAnonymously: async (...args: unknown[]) => {
+        signInCalls += 1;
+        assert.equal(args.length, 0);
         return { data: { user: guest }, error: null };
       },
     },
   } as never;
-  assert.deepEqual(await ensureScanSession(client, 'turnstile-token'), guest);
-  assert.equal(receivedCaptcha, 'turnstile-token');
+  assert.deepEqual(await ensureScanSession(successClient), guest);
+  assert.equal(signInCalls, 1);
+
+  const failedClient = {
+    auth: {
+      getSession: async () => ({ data: { session: null }, error: null }),
+      signInAnonymously: async () => ({ data: { user: null }, error: new Error('Auth rejected') }),
+    },
+  } as never;
+  await assert.rejects(() => ensureScanSession(failedClient), (error: unknown) =>
+    error instanceof GuestSessionError && error.code === 'GUEST_SESSION_FAILED');
 });
 
 test('existing browser session is validated with getUser before use', async () => {

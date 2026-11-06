@@ -3,7 +3,6 @@ import Image from 'next/image';
 import { Camera, ImagePlus, MapPinOff, RotateCcw, ScanLine, UploadCloud } from 'lucide-react';
 import { ScanningOverlay } from '@/components/landing/ScanningOverlay';
 import type { AreaStatus } from '@/hooks/useUserArea';
-import { TurnstileCaptcha } from '@/components/landing/TurnstileCaptcha';
 
 interface UploadCardProps {
   previewUrl: string | null;
@@ -12,9 +11,6 @@ interface UploadCardProps {
   message: string | null;
   locationStatus?: AreaStatus;
   onRetryLocation?: () => void;
-  needsCaptcha: boolean;
-  onCaptchaToken: (token: string | null) => void;
-  captchaResetNonce: number;
   onFileSelect: (file: File) => void;
   onClear: () => void;
   onClassify: () => void;
@@ -27,9 +23,6 @@ export function UploadCard({
   message,
   locationStatus = 'precise',
   onRetryLocation,
-  needsCaptcha,
-  onCaptchaToken,
-  captchaResetNonce,
   onFileSelect,
   onClear,
   onClassify,
@@ -184,8 +177,6 @@ export function UploadCard({
         <ScanLine className="h-5 w-5" aria-hidden="true" />
         Klasifikasikan Sampah Sekarang
       </button>
-
-      {needsCaptcha && <TurnstileCaptcha onToken={onCaptchaToken} resetNonce={captchaResetNonce} />}
 
       {message && (
         <p role="alert" className="mt-3 text-sm font-medium text-rose-700 dark:text-rose-300">

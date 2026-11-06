@@ -43,9 +43,6 @@ export interface ScanStore {
 export interface ScanPostDependencies {
   getIdentity(): Promise<ScanIdentity | null>;
   getStore(): ScanStore;
-  getClientIp(headers: Headers): string;
-  consumeRequestLimit(userId: string, clientIp: string): Promise<{ allowed: boolean; retryAfterSeconds: number }>;
-  reserveAiInvocation(userId: string): Promise<{ allowed: boolean; retryAfterSeconds: number }>;
   sniffImageMime(bytes: Uint8Array): 'image/jpeg' | 'image/png' | 'image/webp' | null;
   parseGps(values: Array<FormDataEntryValue | null>): {
     latitude: number | null;
@@ -81,10 +78,8 @@ function json(body: unknown, status = 200, extraHeaders: HeadersInit = {}) {
   return Response.json(body, { status, headers });
 }
 
-function fail(code: string, status: number, retryWithNewKey = false, retryAfterSeconds?: number) {
-  const headers = new Headers();
-  if (retryAfterSeconds !== undefined) headers.set('Retry-After', String(Math.max(1, retryAfterSeconds)));
-  return json({ error: { code, ...(retryWithNewKey ? { retry_with_new_key: true } : {}) } }, status, headers);
+function fail(code: string, status: number, retryWithNewKey = false) {
+  return json({ error: { code, ...(retryWithNewKey ? { retry_with_new_key: true } : {}) } }, status);
 }
 
 function scanResult(row: ScanRow, imageUrl: string | null, reason: string | null = null): CreateScanResult {
@@ -159,13 +154,6 @@ export function createScanPostHandler(deps: ScanPostDependencies) {
     const key = request.headers.get('idempotency-key');
     if (!key || !UUID_PATTERN.test(key)) return fail('INVALID_IDEMPOTENCY_KEY', 400);
 
-    let clientIp: string;
-    try { clientIp = deps.getClientIp(request.headers); } catch { return fail('RATE_LIMITER_UNAVAILABLE', 503); }
-    let requestLimit: { allowed: boolean; retryAfterSeconds: number };
-    try { requestLimit = await deps.consumeRequestLimit(identity.userId, clientIp); }
-    catch { return fail('RATE_LIMITER_UNAVAILABLE', 503); }
-    if (!requestLimit.allowed) return fail('RATE_LIMITED', 429, false, requestLimit.retryAfterSeconds);
-
     let store: ScanStore;
     try { store = deps.getStore(); } catch { return fail('SERVER_NOT_CONFIGURED', 503); }
     try {
@@ -234,17 +222,6 @@ export function createScanPostHandler(deps: ScanPostDependencies) {
     } catch {
       await store.markFailed(scanId, 'upload_failed');
       return fail('UPLOAD_FAILED', 502, true);
-    }
-
-    let aiLimit: { allowed: boolean; retryAfterSeconds: number };
-    try { aiLimit = await deps.reserveAiInvocation(identity.userId); }
-    catch {
-      await store.markFailed(scanId, 'rate_limiter_unavailable');
-      return fail('RATE_LIMITER_UNAVAILABLE', 503, true);
-    }
-    if (!aiLimit.allowed) {
-      await store.markFailed(scanId, 'ai_budget_exceeded');
-      return fail('AI_BUDGET_EXCEEDED', 429, true, aiLimit.retryAfterSeconds);
     }
 
     try {
