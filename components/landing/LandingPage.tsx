@@ -13,11 +13,11 @@ export function LandingPage() {
   const scan = useWasteScan();
 
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 transition-colors">
+    <div className="min-h-screen w-full min-w-0 bg-slate-50 text-slate-900 transition-colors dark:bg-slate-950 dark:text-slate-100">
       <Navbar userArea={userArea} theme={theme} onToggleTheme={toggleTheme} />
       <main>
         <HeroSection />
-        <div className="mx-auto grid max-w-6xl gap-6 px-4 py-10 sm:px-6 sm:py-14 lg:grid-cols-2 lg:gap-8">
+        <div className="mx-auto grid w-full min-w-0 max-w-6xl grid-cols-1 gap-5 px-4 py-8 sm:gap-6 sm:px-6 sm:py-14 lg:grid-cols-2 lg:gap-8">
           <UploadCard
             previewUrl={scan.previewUrl}
             hasFile={scan.hasFile}

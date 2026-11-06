@@ -31,7 +31,7 @@ export function ResultCard({
     <>
       <section
         aria-labelledby="result-heading"
-        className="flex flex-col rounded-2xl bg-white p-5 shadow-soft ring-1 ring-slate-200/70 sm:p-6 dark:bg-slate-900 dark:ring-slate-800"
+        className="flex min-w-0 flex-col rounded-2xl bg-white p-4 shadow-soft ring-1 ring-slate-200/70 sm:p-6 dark:bg-slate-900 dark:ring-slate-800"
       >
         <h2 id="result-heading" className="text-xl font-bold text-slate-900 dark:text-white">
           Hasil Klasifikasi
@@ -138,8 +138,6 @@ function ResultDetails({ outcome }: { outcome: ScanOutcome }) {
   const categoryValue = outcome.category;
   const category = categoryValue ? WASTE_CATEGORIES[categoryValue] : null;
   const location = [outcome.area.district, outcome.area.regency].filter(Boolean).join(', ');
-  const confidencePercent =
-    outcome.confidence === null ? null : Math.max(0, Math.min(1, outcome.confidence)) * 100;
 
   return (
     <div className="animate-fade-up mt-5 flex flex-col gap-6">
@@ -148,7 +146,7 @@ function ResultDetails({ outcome }: { outcome: ScanOutcome }) {
           <ScanSearch className="h-4 w-4" aria-hidden="true" />
           {category ? 'Objek terdeteksi' : 'Objek belum dikenali'}
         </p>
-        <h3 className="mt-1.5 text-xl font-bold leading-snug text-slate-900 dark:text-white sm:text-2xl">
+        <h3 className="mt-1.5 break-words text-xl font-bold leading-snug text-slate-900 dark:text-white sm:text-2xl">
           {outcome.material || 'Tidak ada objek sampah yang dikenali'}
         </h3>
       </div>
@@ -161,30 +159,10 @@ function ResultDetails({ outcome }: { outcome: ScanOutcome }) {
             Belum dapat diklasifikasikan
           </span>
         )}
-        {confidencePercent !== null && (
-          <div className="w-full">
-            <div className="mb-2 flex items-center justify-between gap-3 text-sm">
-              <span className="font-medium text-slate-600 dark:text-slate-300">
-                Keyakinan klasifikasi
-              </span>
-              <span className="font-semibold text-slate-700 dark:text-slate-200">
-                {confidencePercent.toFixed(1)}%
-              </span>
-            </div>
-            <div
-              role="progressbar"
-              aria-label="Keyakinan klasifikasi"
-              aria-valuemin={0}
-              aria-valuemax={100}
-              aria-valuenow={confidencePercent}
-              className="h-2.5 w-full overflow-hidden rounded-full bg-slate-200 dark:bg-slate-700"
-            >
-              <div
-                className="h-full rounded-full bg-emerald-600 transition-[width] duration-500 ease-out dark:bg-emerald-400"
-                style={{ width: `${confidencePercent}%` }}
-              />
-            </div>
-          </div>
+        {outcome.confidence !== null && (
+          <span className="text-sm font-semibold text-slate-700 dark:text-slate-200">
+            Keyakinan {(outcome.confidence * 100).toFixed(1)}%
+          </span>
         )}
       </div>
 
@@ -199,7 +177,7 @@ function ResultDetails({ outcome }: { outcome: ScanOutcome }) {
             <ListChecks className="h-5 w-5 text-emerald-600 dark:text-emerald-400" aria-hidden="true" />
             Alasan klasifikasi
           </h3>
-          <p className="mt-3 rounded-xl bg-slate-50 p-3.5 text-sm leading-relaxed text-slate-700 dark:bg-slate-800/60 dark:text-slate-200">
+          <p className="mt-3 break-words rounded-xl bg-slate-50 p-3.5 text-sm leading-relaxed text-slate-700 dark:bg-slate-800/60 dark:text-slate-200">
             {outcome.reason}
           </p>
         </div>
@@ -208,14 +186,14 @@ function ResultDetails({ outcome }: { outcome: ScanOutcome }) {
       {outcome.instruction && (
         <div>
           <h3 className="font-semibold text-slate-900 dark:text-white">Cara membuang yang tepat</h3>
-          <p className="mt-3 rounded-xl bg-slate-50 p-3.5 text-sm leading-relaxed text-slate-700 dark:bg-slate-800/60 dark:text-slate-200">
+          <p className="mt-3 break-words rounded-xl bg-slate-50 p-3.5 text-sm leading-relaxed text-slate-700 dark:bg-slate-800/60 dark:text-slate-200">
             {outcome.instruction}
           </p>
         </div>
       )}
 
       {outcome.localContext && (
-        <p className="rounded-xl border border-emerald-200 bg-emerald-50 p-3.5 text-sm leading-relaxed text-emerald-900 dark:border-emerald-900 dark:bg-emerald-950/40 dark:text-emerald-200">
+        <p className="break-words rounded-xl border border-emerald-200 bg-emerald-50 p-3.5 text-sm leading-relaxed text-emerald-900 dark:border-emerald-900 dark:bg-emerald-950/40 dark:text-emerald-200">
           <span className="font-semibold">Konteks Bali: </span>
           {outcome.localContext}
         </p>

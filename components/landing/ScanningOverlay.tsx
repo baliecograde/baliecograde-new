@@ -21,7 +21,6 @@ export function ScanningOverlay() {
       </div>
       <div className="px-6 text-center">
         <p className="text-lg font-semibold text-white">Menganalisis sampah...</p>
-        <p className="mt-1 text-sm text-slate-300">Mencocokkan bentuk, warna, dan tekstur</p>
       </div>
     </div>
   );
