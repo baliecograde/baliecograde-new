@@ -100,30 +100,30 @@ Aplikasi menggunakan **DeepSeek Vision API** (`deepseek-flash`) yang dijalankan 
 
 ```mermaid
 flowchart TD
-    User([Pengguna / Perangkat]) -->|Kamera / Unggah Foto + GPS| Browser[Browser UI]
+    User(["Pengguna / Perangkat"]) -->|"Kamera / Unggah Foto + GPS"| Browser["Browser UI"]
     
     subgraph ClientValidation["Validasi Sisi Klien"]
-        Browser --> CheckGPS{GPS Aktif & di Bali?}
-        CheckGPS -- Tidak --> HoldUI[Hold Scanner & Munculkan Notifikasi]
-        CheckGPS -- Ya --> Compress[Kompresi Canvas Resolusi Tinggi]
+        Browser --> CheckGPS{"GPS Aktif & di Bali?"}
+        CheckGPS -- "Tidak" --> HoldUI["Hold Scanner & Munculkan Notifikasi"]
+        CheckGPS -- "Ya" --> Compress["Kompresi Canvas Resolusi Tinggi"]
     end
 
-    Compress -->|POST /api/scans (Multipart)| API[Next.js Route Handler]
+    Compress -->|"POST /api/scans (Multipart)"| API["Next.js Route Handler"]
 
     subgraph ServerProcessing["Pemrosesan Server"]
-        API --> Sharp[Sharp: Validasi MIME & Hapus EXIF]
-        API --> Geo[Geocoding: Nominatim + 57 Kecamatan Bali]
-        Sharp --> Storage[(Supabase Storage: waste-images)]
-        API --> DeepSeek[DeepSeek Vision API]
+        API --> Sharp["Sharp: Validasi MIME & Hapus EXIF"]
+        API --> Geo["Geocoding: Nominatim + 57 Kecamatan Bali"]
+        Sharp --> Storage[("Supabase Storage: waste-images")]
+        API --> DeepSeek["DeepSeek Vision API"]
     end
 
-    DeepSeek -->|Hasil Analisis + Confidence| DBInsert[Penyimpanan Data]
+    DeepSeek -->|"Hasil Analisis + Confidence"| DBInsert["Penyimpanan Data"]
     Geo --> DBInsert
     Storage --> DBInsert
-    DBInsert --> Database[(Supabase PostgreSQL: public.waste_scans)]
+    DBInsert --> Database[("Supabase PostgreSQL: public.waste_scans")]
 
-    Database --> AdminAPI[Route Handler: /api/admin/*]
-    AdminAPI --> AdminUI[Admin Dashboard & Moderasi]
+    Database --> AdminAPI["Route Handler: /api/admin/*"]
+    AdminAPI --> AdminUI["Admin Dashboard & Moderasi"]
 ```
 
 ---
