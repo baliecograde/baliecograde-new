@@ -87,7 +87,7 @@ Aplikasi menggunakan **DeepSeek Vision API** (`deepseek-flash`) yang dijalankan 
 
 ### Alur Kerja Model
 1. **Analisis Kondisi Fisik**: Mengevaluasi kondisi visual material—seperti tingkat kebersihan, kontaminasi minyak atau sisa makanan, serta adanya lapisan laminasi plastik.
-2. **Kategorisasi & Scoring**: Menghasilkan kategori kanonik (`ORGANIK`, `ANORGANIK`, `RESIDU`, `B3`) disertai nilai tingkat keyakinan (*confidence score*) numerik 0.0 hingga 1.0.
+2. **Kategorisasi & Scoring**: Menghasilkan kategori kanonik (`ORGANIK`, `ANORGANIK`, `RESIDU`, `B3`) disertai nilai tingkat keyakinan (*confidence score*) numerik 0 hingga 100 .
 3. **Deteksi Non-Sampah / Uncertain**: Jika citra buram atau bukan merupakan objek sampah, model menandai `analysis_status: "uncertain"` (`category: null`) untuk memicu dialog informasi bagi pengguna.
 4. **Instruksi & Konteks Budaya**: Menyediakan alasan klasifikasi, instruksi keselamatan praktis, dan catatan adat lokal Bali tanpa halusinasi fakta budaya.
 
@@ -196,7 +196,7 @@ npm run build
 |---|---|---|
 | **I Gede Krusiawan Budi** | Fullstack & Backend Engineer | Arsitektur API Next.js, integrasi Supabase (DB & Storage), pipeline geocoding wilayah Bali, serta sistem moderasi dashboard. |
 | **Ida Bagus Geniastra Wirabhuana** | AI & Machine Learning Specialist | Rekayasa prompt visi DeepSeek, perumusan logika pemilahan sampah adat Bali, dan benchmark akurasi klasifikasi. |
-| **Angga Arditya** | Frontend & UI/UX Developer | Antarmuka interaktif pemindai kamera, visualisasi analitik chart dashboard, serta integrasi responsif Tailwind CSS. |
+| **I Nyoman Angga Arditya** | Frontend & UI/UX Developer | Antarmuka interaktif pemindai kamera, visualisasi analitik chart dashboard, serta integrasi responsif Tailwind CSS. |
 
 ---
 
